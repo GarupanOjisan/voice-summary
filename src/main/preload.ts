@@ -7,6 +7,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   startAudioCapture: (deviceId: string) =>
     ipcRenderer.invoke('start-audio-capture', deviceId),
   stopAudioCapture: () => ipcRenderer.invoke('stop-audio-capture'),
+  getAudioQualityStats: () => ipcRenderer.invoke('get-audio-quality-stats'),
+  getBufferInfo: () => ipcRenderer.invoke('get-buffer-info'),
+  updateAudioProcessorOptions: (options: any) =>
+    ipcRenderer.invoke('update-audio-processor-options', options),
 
   // ファイル関連
   saveFile: (data: any, filename: string) =>
@@ -35,8 +39,15 @@ declare global {
   interface Window {
     electronAPI: {
       getAudioDevices: () => Promise<any[]>;
-      startAudioCapture: (deviceId: string) => Promise<void>;
-      stopAudioCapture: () => Promise<void>;
+      startAudioCapture: (
+        deviceId: string
+      ) => Promise<{ success: boolean; error?: string }>;
+      stopAudioCapture: () => Promise<{ success: boolean; error?: string }>;
+      getAudioQualityStats: () => Promise<any>;
+      getBufferInfo: () => Promise<any>;
+      updateAudioProcessorOptions: (
+        options: any
+      ) => Promise<{ success: boolean; error?: string }>;
       saveFile: (data: any, filename: string) => Promise<void>;
       openFile: () => Promise<any>;
       getSettings: () => Promise<any>;
