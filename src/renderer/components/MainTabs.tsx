@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import LiveTranscriptDisplay from './LiveTranscriptDisplay';
-import SummaryDisplay from './SummaryDisplay';
+import SummaryPanelDisplay from './SummaryPanelDisplay';
 import TopicsDisplay from './TopicsDisplay';
 import HighlightsDisplay from './HighlightsDisplay';
+import TopicHighlightDisplay from './TopicHighlightDisplay';
+import ProgressIndicator from './ProgressIndicator';
 
 interface Tab {
   id: string;
@@ -26,6 +28,9 @@ const MainTabs: React.FC = () => {
           showConfidence={true}
           maxHeight="calc(100vh - 200px)"
           refreshInterval={1000}
+          showSpeakerInfo={true}
+          enableHighlighting={true}
+          wordHighlighting={false}
         />
       ),
     },
@@ -42,16 +47,43 @@ const MainTabs: React.FC = () => {
       component: <HighlightsDisplay />,
     },
     {
+      id: 'topic-highlights',
+      label: 'トピック別',
+      icon: '🎯',
+      component: (
+        <TopicHighlightDisplay
+          maxHeight="calc(100vh - 200px)"
+          refreshInterval={2000}
+          enableAutoScroll={true}
+          showConfidence={true}
+          showTimestamps={true}
+        />
+      ),
+    },
+    {
       id: 'summary',
       label: '要約',
       icon: '📊',
       component: (
-        <SummaryDisplay
-          autoRefresh={true}
+        <SummaryPanelDisplay
+          maxHeight="calc(100vh - 200px)"
           refreshInterval={5000}
+          enableAutoScroll={true}
           showConfidence={true}
           showUsage={true}
-          maxHeight="calc(100vh - 200px)"
+          showProgress={true}
+        />
+      ),
+    },
+    {
+      id: 'progress',
+      label: '進行状況',
+      icon: '📈',
+      component: (
+        <ProgressIndicator
+          showDetails={true}
+          showTimeline={true}
+          compact={false}
         />
       ),
     },

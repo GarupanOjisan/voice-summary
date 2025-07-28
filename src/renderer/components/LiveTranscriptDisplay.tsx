@@ -1,25 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
-
-interface TranscriptSegment {
-  id: string;
-  startTime: number;
-  endTime: number;
-  text: string;
-  confidence: number;
-  speaker?: string;
-  isFinal: boolean;
-  language?: string;
-  timestamp: number;
-}
-
-interface SpeakerInfo {
-  id: string;
-  name?: string;
-  color?: string;
-  totalSegments: number;
-  totalDuration: number;
-  averageConfidence: number;
-}
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useTranscriptionStore, useAudioStore } from '../stores';
 
 interface LiveTranscriptDisplayProps {
   autoScroll?: boolean;
@@ -27,6 +7,9 @@ interface LiveTranscriptDisplayProps {
   showConfidence?: boolean;
   maxHeight?: string;
   refreshInterval?: number;
+  showSpeakerInfo?: boolean;
+  enableHighlighting?: boolean;
+  wordHighlighting?: boolean;
 }
 
 const LiveTranscriptDisplay: React.FC<LiveTranscriptDisplayProps> = ({
@@ -35,82 +18,95 @@ const LiveTranscriptDisplay: React.FC<LiveTranscriptDisplayProps> = ({
   showConfidence = true,
   maxHeight = '600px',
   refreshInterval = 1000,
+  showSpeakerInfo = true,
+  enableHighlighting = true,
+  wordHighlighting = false,
 }) => {
-  const [segments, setSegments] = useState<TranscriptSegment[]>([]);
-  const [speakers, setSpeakers] = useState<SpeakerInfo[]>([]);
-  const [isStreaming, setIsStreaming] = useState<boolean>(false);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
+  const {
+    segments,
+    speakers,
+    isSTTActive,
+    currentSegment,
+    totalWords,
+    averageConfidence,
+    updateStatistics,
+  } = useTranscriptionStore();
+  
+  const { isRecording, audioLevel } = useAudioStore();
+  
   const [displaySettings, setDisplaySettings] = useState({
     autoScroll,
     showTimestamps,
     showConfidence,
+    showSpeakerInfo,
+    enableHighlighting,
+    wordHighlighting,
   });
+  
+  const [highlightedWords, setHighlightedWords] = useState<Set<string>>(new Set());
+  const [isScrolling, setIsScrolling] = useState(false);
   
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const lastSegmentRef = useRef<HTMLDivElement>(null);
+  const autoScrollTimeoutRef = useRef<NodeJS.Timeout>();
 
+  // 統計情報の更新
   useEffect(() => {
-    loadTranscriptData();
-    
-    // 定期的な更新とイベントベースの更新を組み合わせ
-    const interval = setInterval(loadTranscriptData, refreshInterval);
-    
-    // イベントベースの更新を設定
-    const handleSegmentAdded = () => {
-      loadTranscriptData();
-    };
-    
-    const handleBatchProcessed = () => {
-      loadTranscriptData();
-    };
-    
-    const handleSessionStarted = () => {
-      loadTranscriptData();
-    };
-    
-    const handleSessionStopped = () => {
-      loadTranscriptData();
-    };
-    
-    window.electronAPI.onTranscriptSegmentAdded(handleSegmentAdded);
-    window.electronAPI.onTranscriptBatchProcessed(handleBatchProcessed);
-    window.electronAPI.onTranscriptSessionStarted(handleSessionStarted);
-    window.electronAPI.onTranscriptSessionStopped(handleSessionStopped);
+    updateStatistics();
+  }, [segments, updateStatistics]);
+
+  // 自動スクロール機能
+  useEffect(() => {
+    if (autoScroll && displaySettings.autoScroll && lastSegmentRef.current && !isScrolling) {
+      // スクロールを遅延させて、新しいセグメントが完全にレンダリングされるのを待つ
+      autoScrollTimeoutRef.current = setTimeout(() => {
+        lastSegmentRef.current?.scrollIntoView({ 
+          behavior: 'smooth',
+          block: 'end'
+        });
+      }, 100);
+    }
     
     return () => {
-      clearInterval(interval);
-    };
-  }, [refreshInterval]);
-
-  useEffect(() => {
-    if (autoScroll && lastSegmentRef.current) {
-      lastSegmentRef.current.scrollIntoView({ 
-        behavior: 'smooth',
-        block: 'end'
-      });
-    }
-  }, [segments, autoScroll]);
-
-  const loadTranscriptData = async () => {
-    try {
-      const aggregatorInfo = await window.electronAPI.getTranscriptAggregatorInfo();
-      
-      if (aggregatorInfo) {
-        setIsStreaming(aggregatorInfo.currentSession.isActive);
-        setSpeakers(aggregatorInfo.speakers);
-        
-        if (aggregatorInfo.latestTranscript) {
-          setSegments(aggregatorInfo.latestTranscript.segments);
-        }
+      if (autoScrollTimeoutRef.current) {
+        clearTimeout(autoScrollTimeoutRef.current);
       }
-    } catch (err) {
-      setError('トランスクリプトデータの読み込みに失敗しました');
-      console.error(err);
-    } finally {
-      setLoading(false);
+    };
+  }, [segments, autoScroll, displaySettings.autoScroll, isScrolling]);
+
+  // 単語ハイライト機能
+  useEffect(() => {
+    if (wordHighlighting && currentSegment) {
+      const words = currentSegment.text.split(' ');
+      const newHighlightedWords = new Set(words);
+      setHighlightedWords(newHighlightedWords);
+      
+      // 3秒後にハイライトをクリア
+      const timeout = setTimeout(() => {
+        setHighlightedWords(new Set());
+      }, 3000);
+      
+      return () => clearTimeout(timeout);
     }
-  };
+  }, [currentSegment, wordHighlighting]);
+
+  // スクロールイベントハンドラー
+  const handleScroll = useCallback(() => {
+    if (scrollContainerRef.current) {
+      const { scrollTop, scrollHeight, clientHeight } = scrollContainerRef.current;
+      const isAtBottom = scrollHeight - scrollTop <= clientHeight + 10;
+      setIsScrolling(!isAtBottom);
+    }
+  }, []);
+
+  // スクロールイベントリスナーの設定
+  useEffect(() => {
+    const scrollContainer = scrollContainerRef.current;
+    if (scrollContainer) {
+      scrollContainer.addEventListener('scroll', handleScroll);
+      return () => scrollContainer.removeEventListener('scroll', handleScroll);
+    }
+  }, [handleScroll]);
 
   const formatTimestamp = (timestamp: number): string => {
     return new Date(timestamp).toLocaleTimeString();
@@ -152,30 +148,31 @@ const LiveTranscriptDisplay: React.FC<LiveTranscriptDisplayProps> = ({
 
   const handleClearTranscript = () => {
     if (confirm('文字起こしをクリアしますか？')) {
-      setSegments([]);
+      // ストアのクリア機能を使用
+      const { clearSegments } = useTranscriptionStore.getState();
+      clearSegments();
     }
   };
 
-  if (loading) {
-    return (
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <div className="flex items-center justify-center h-32">
-          <div className="text-gray-600">読み込み中...</div>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-          <div className="text-red-800 font-medium">エラー</div>
-          <div className="text-red-600">{error}</div>
-        </div>
-      </div>
-    );
-  }
+  // 単語ハイライト機能
+  const highlightWords = (text: string) => {
+    if (!wordHighlighting || highlightedWords.size === 0) {
+      return text;
+    }
+    
+    const words = text.split(' ');
+    return words.map((word, index) => {
+      const cleanWord = word.replace(/[.,!?;:]/g, '');
+      if (highlightedWords.has(cleanWord)) {
+        return (
+          <span key={index} className="bg-yellow-200 font-semibold">
+            {word}
+          </span>
+        );
+      }
+      return word;
+    });
+  };
 
   return (
     <div className="bg-white rounded-lg shadow-md p-6">
@@ -184,9 +181,9 @@ const LiveTranscriptDisplay: React.FC<LiveTranscriptDisplayProps> = ({
         <div className="flex items-center space-x-4">
           <h2 className="text-xl font-semibold text-gray-900">ライブ文字起こし</h2>
           <div className="flex items-center space-x-2">
-            <div className={`w-3 h-3 rounded-full ${isStreaming ? 'bg-green-500' : 'bg-red-500'}`}></div>
+            <div className={`w-3 h-3 rounded-full ${isSTTActive ? 'bg-green-500' : 'bg-red-500'}`}></div>
             <span className="text-sm text-gray-600">
-              {isStreaming ? '実行中' : '停止中'}
+              {isSTTActive ? '実行中' : '停止中'}
             </span>
           </div>
         </div>
@@ -261,7 +258,7 @@ const LiveTranscriptDisplay: React.FC<LiveTranscriptDisplayProps> = ({
                   style={{ backgroundColor: speaker.color }}
                 ></div>
                 <span className="text-sm text-gray-700">{speaker.name}</span>
-                <span className="text-xs text-gray-500">({speaker.totalSegments})</span>
+                <span className="text-xs text-gray-500">({speaker.id})</span>
               </div>
             ))}
           </div>
@@ -276,7 +273,7 @@ const LiveTranscriptDisplay: React.FC<LiveTranscriptDisplayProps> = ({
       >
         {segments.length === 0 ? (
           <div className="text-center text-gray-500 py-8">
-            {isStreaming ? (
+            {isSTTActive ? (
               <div>
                 <div className="text-lg mb-2">音声認識中...</div>
                 <div className="text-sm">音声を話すと、ここに文字起こしが表示されます</div>
@@ -343,13 +340,8 @@ const LiveTranscriptDisplay: React.FC<LiveTranscriptDisplayProps> = ({
 
                 {/* フッター */}
                 <div className="flex items-center justify-between mt-2 text-xs text-gray-500">
-                  <div className="flex items-center space-x-2">
-                    {segment.language && (
-                      <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded">
-                        {segment.language}
-                      </span>
-                    )}
-                    <span>ID: {segment.id.slice(-8)}</span>
+                                  <div className="flex items-center space-x-2">
+                  <span>ID: {segment.id.slice(-8)}</span>
                   </div>
                   <span>
                     {new Date(segment.timestamp).toLocaleTimeString()}
