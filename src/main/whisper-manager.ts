@@ -99,6 +99,26 @@ export class WhisperManager extends EventEmitter {
     super();
     this.modelsDir = path.join(process.cwd(), 'models');
     this.ensureModelsDirectory();
+    
+    // 自動初期化を試行（baseモデルが利用可能な場合）
+    this.autoInitialize();
+  }
+
+  /**
+   * 自動初期化を試行
+   */
+  private async autoInitialize(): Promise<void> {
+    try {
+      // baseモデルがダウンロード済みの場合は自動初期化
+      if (this.isModelDownloaded('base')) {
+        console.log('WhisperManager: baseモデルを自動初期化します');
+        await this.initialize('base');
+      } else {
+        console.log('WhisperManager: baseモデルがダウンロードされていないため、自動初期化をスキップします');
+      }
+    } catch (error) {
+      console.error('WhisperManager: 自動初期化に失敗しました:', error);
+    }
   }
 
   /**
@@ -217,7 +237,13 @@ export class WhisperManager extends EventEmitter {
       throw new Error('Whisperが初期化されていません');
     }
 
-    const modelPath = path.join(this.modelsDir, `${this.currentModel}.bin`);
+    // モデル定義から正しいファイル名を取得
+    const model = this.models.find((m) => m.name === this.currentModel);
+    if (!model) {
+      throw new Error(`モデル ${this.currentModel} が見つかりません`);
+    }
+
+    const modelPath = path.join(this.modelsDir, model.filename);
     if (!fs.existsSync(modelPath)) {
       throw new Error(`モデルファイルが見つかりません: ${modelPath}`);
     }
@@ -229,14 +255,36 @@ export class WhisperManager extends EventEmitter {
         model: this.currentModel,
       });
 
+      console.log('Whisperコマンド実行:', command);
+
       const { stdout, stderr } = await execAsync(command);
 
       if (stderr) {
         console.log('Whisper stderr:', stderr);
       }
 
-      // 結果をパース
-      const result = this.parseWhisperOutput(stdout);
+      // JSONファイルから結果を読み取る
+      const jsonFilePath = `${audioPath}.json`;
+      let result: TranscriptionResult;
+
+      try {
+        if (fs.existsSync(jsonFilePath)) {
+          const jsonContent = fs.readFileSync(jsonFilePath, 'utf8');
+          console.log('JSON file content:', jsonContent);
+          result = this.parseWhisperOutput(jsonContent);
+          
+          // 一時JSONファイルを削除
+          fs.unlinkSync(jsonFilePath);
+        } else {
+          // JSONファイルが見つからない場合は、stdoutから解析
+          console.log('JSON file not found, parsing stdout:', stdout);
+          result = this.parseWhisperTextOutput(stdout);
+        }
+      } catch (fileError) {
+        console.error('JSONファイル読み取りエラー:', fileError);
+        // ファイル読み取りに失敗した場合は、stdoutから解析
+        result = this.parseWhisperTextOutput(stdout);
+      }
 
       this.emit('transcriptionComplete', result);
       return result;
@@ -298,50 +346,46 @@ export class WhisperManager extends EventEmitter {
       logProb,
     } = options;
 
-    let command = `whisper "${audioPath}" --model "${modelPath}" --task ${task}`;
+    // whisper-cliを使用（ファイルパスを最後に配置）
+    let command = `whisper-cli -m "${modelPath}"`;
 
-    if (language) {
-      command += ` --language ${language}`;
+    if (language && language !== 'auto') {
+      command += ` -l ${language}`;
     }
+    
+    // タスクが翻訳の場合は--translateフラグを使用
+    if (task === 'translate') {
+      command += ` --translate`;
+    }
+    
     if (temperature !== undefined) {
       command += ` --temperature ${temperature}`;
     }
-    if (maxTokens) {
-      command += ` --max-tokens ${maxTokens}`;
-    }
-    if (bestOf) {
+    
+    if (bestOf && bestOf !== 5) { // デフォルトは5
       command += ` --best-of ${bestOf}`;
     }
-    if (beamSize) {
+    
+    if (beamSize && beamSize !== 5) { // デフォルトは5
       command += ` --beam-size ${beamSize}`;
     }
-    if (patience) {
-      command += ` --patience ${patience}`;
-    }
-    if (lengthPenalty) {
-      command += ` --length-penalty ${lengthPenalty}`;
-    }
-    if (suppressTokens) {
-      command += ` --suppress-tokens ${suppressTokens}`;
-    }
-    if (suppressBlank) {
-      command += ` --suppress-blank`;
-    }
+    
     if (initialPrompt) {
-      command += ` --initial-prompt "${initialPrompt}"`;
+      command += ` --prompt "${initialPrompt}"`;
     }
-    if (conditionOnPreviousText) {
-      command += ` --condition-on-previous-text`;
-    }
-    if (temperatureInc) {
+    
+    if (temperatureInc && temperatureInc !== 0.2) { // デフォルトは0.2
       command += ` --temperature-inc ${temperatureInc}`;
     }
-    if (hotwords) {
-      command += ` --hotwords "${hotwords}"`;
-    }
-    if (logProb) {
-      command += ` --log-prob ${logProb}`;
-    }
+
+    // 出力形式の設定
+    command += ` --output-json`; // JSONファイル出力
+    
+    // タイムスタンプ付きテキスト出力（デフォルトでstdoutに出力される）
+    // --no-printsは削除して、stdoutに結果を出力させる
+    
+    // 音声ファイルパスを最後に追加
+    command += ` "${audioPath}"`;
 
     return command;
   }
@@ -350,10 +394,62 @@ export class WhisperManager extends EventEmitter {
    * Whisper出力をパース
    */
   private parseWhisperOutput(output: string): TranscriptionResult {
-    // 実際の実装では、Whisperの出力形式に応じてパース
-    // ここでは簡易的な実装
+    try {
+      // whisper-cliのJSON出力をパース
+      const jsonOutput = JSON.parse(output);
+      
+      // whisper-cppのJSON出力形式に対応
+      if (jsonOutput.transcription) {
+        // transcription配列がある場合
+        const segments = jsonOutput.transcription.map((segment: any, index: number) => ({
+          id: index,
+          start: segment.timestamps?.from || 0,
+          end: segment.timestamps?.to || 0,
+          text: segment.text || '',
+          tokens: segment.tokens || [],
+          temperature: 0,
+          avgLogProb: 0,
+          compressionRatio: 0,
+          noSpeechProb: 0,
+        }));
+
+        const fullText = segments.map((s: any) => s.text).join(' ').trim();
+
+        return {
+          text: fullText,
+          segments,
+          language: jsonOutput.result?.language || 'ja',
+          duration: jsonOutput.result?.duration || 0,
+        };
+      } else if (jsonOutput.text) {
+        // 単純なテキストの場合
+        return {
+          text: jsonOutput.text.trim(),
+          segments: [
+            {
+              id: 0,
+              start: 0,
+              end: jsonOutput.duration || 0,
+              text: jsonOutput.text.trim(),
+              tokens: [],
+              temperature: 0,
+              avgLogProb: 0,
+              compressionRatio: 0,
+              noSpeechProb: 0,
+            },
+          ],
+          language: jsonOutput.language || 'ja',
+          duration: jsonOutput.duration || 0,
+        };
+      }
+    } catch (error) {
+      console.error('JSON解析エラー:', error);
+      console.log('Raw output:', output);
+    }
+
+    // JSON解析に失敗した場合やフォーマットが不明な場合は、テキストとして処理
     const lines = output.trim().split('\n');
-    const text = lines.join(' ');
+    const text = lines.join(' ').trim();
 
     return {
       text,
@@ -373,6 +469,77 @@ export class WhisperManager extends EventEmitter {
       language: 'ja',
       duration: 0,
     };
+  }
+
+  /**
+   * Whisper SRTテキスト出力をパース
+   */
+  private parseWhisperTextOutput(output: string): TranscriptionResult {
+    const lines = output.trim().split('\n');
+    const segments: any[] = [];
+    let currentSegment: any = null;
+    let segmentId = 0;
+
+    for (const line of lines) {
+      // SRT形式の時間スタンプを検出 (例: "00:00:00.000 --> 00:00:02.000")
+      const timeMatch = line.match(/^(\d{2}:\d{2}:\d{2}\.\d{3})\s*-->\s*(\d{2}:\d{2}:\d{2}\.\d{3})/);
+      
+      if (timeMatch) {
+        // 新しいセグメント開始
+        currentSegment = {
+          id: segmentId++,
+          start: this.timeToSeconds(timeMatch[1]),
+          end: this.timeToSeconds(timeMatch[2]),
+          text: '',
+          tokens: [],
+          temperature: 0,
+          avgLogProb: 0,
+          compressionRatio: 0,
+          noSpeechProb: 0,
+        };
+        segments.push(currentSegment);
+      } else if (currentSegment && line.trim()) {
+        // セグメントのテキスト部分
+        if (currentSegment.text) {
+          currentSegment.text += ' ' + line.trim();
+        } else {
+          currentSegment.text = line.trim();
+        }
+      }
+    }
+
+    // セグメントが見つからない場合は、全体を一つのセグメントとして処理
+    if (segments.length === 0) {
+      const fullText = lines.join(' ').trim();
+      segments.push({
+        id: 0,
+        start: 0,
+        end: 0,
+        text: fullText,
+        tokens: [],
+        temperature: 0,
+        avgLogProb: 0,
+        compressionRatio: 0,
+        noSpeechProb: 0,
+      });
+    }
+
+    const fullText = segments.map(s => s.text).join(' ').trim();
+
+    return {
+      text: fullText,
+      segments,
+      language: 'ja',
+      duration: segments.length > 0 ? segments[segments.length - 1].end : 0,
+    };
+  }
+
+  /**
+   * SRT時間フォーマットを秒に変換
+   */
+  private timeToSeconds(timeStr: string): number {
+    const [hours, minutes, seconds] = timeStr.split(':');
+    return parseInt(hours) * 3600 + parseInt(minutes) * 60 + parseFloat(seconds);
   }
 
   /**

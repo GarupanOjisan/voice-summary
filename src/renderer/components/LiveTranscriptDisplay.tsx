@@ -16,7 +16,7 @@ const LiveTranscriptDisplay: React.FC<LiveTranscriptDisplayProps> = ({
   autoScroll = true,
   showTimestamps = true,
   showConfidence = true,
-  maxHeight = '600px',
+  maxHeight = '600px', // このプロパティは使用しない
   refreshInterval = 1000,
   showSpeakerInfo = true,
   enableHighlighting = true,
@@ -55,6 +55,19 @@ const LiveTranscriptDisplay: React.FC<LiveTranscriptDisplayProps> = ({
     updateStatistics();
   }, [segments, updateStatistics]);
 
+  // デバッグ用：セグメントの表示順序を確認
+  useEffect(() => {
+    console.log('🎯 LiveTranscriptDisplay: セグメント更新', {
+      segmentsCount: segments.length,
+      segments: segments.map((s, i) => ({ 
+        index: i, 
+        id: s.id.slice(-8), 
+        text: s.text.slice(0, 20) + '...',
+        timestamp: s.timestamp 
+      }))
+    });
+  }, [segments]);
+
   // 自動スクロール機能
   useEffect(() => {
     if (autoScroll && displaySettings.autoScroll && lastSegmentRef.current && !isScrolling) {
@@ -62,7 +75,7 @@ const LiveTranscriptDisplay: React.FC<LiveTranscriptDisplayProps> = ({
       autoScrollTimeoutRef.current = setTimeout(() => {
         lastSegmentRef.current?.scrollIntoView({ 
           behavior: 'smooth',
-          block: 'end'
+          block: 'start' // 上に合わせる
         });
       }, 100);
     }
@@ -94,12 +107,13 @@ const LiveTranscriptDisplay: React.FC<LiveTranscriptDisplayProps> = ({
   const handleScroll = useCallback(() => {
     if (scrollContainerRef.current) {
       const { scrollTop, scrollHeight, clientHeight } = scrollContainerRef.current;
-      const isAtBottom = scrollHeight - scrollTop <= clientHeight + 10;
-      setIsScrolling(!isAtBottom);
+      // 最新のセグメントが上に表示されるため、上端に近いかどうかを判定
+      const isAtTop = scrollTop <= 10;
+      setIsScrolling(!isAtTop);
     }
   }, []);
 
-  // スクロールイベントリスナーの設定
+  // スクロールイベントリスナーを追加
   useEffect(() => {
     const scrollContainer = scrollContainerRef.current;
     if (scrollContainer) {
@@ -135,14 +149,26 @@ const LiveTranscriptDisplay: React.FC<LiveTranscriptDisplayProps> = ({
   };
 
   const handleScrollToBottom = () => {
+    console.log('🎯 最新の文字起こしにスクロール');
     if (scrollContainerRef.current) {
-      scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
+      scrollContainerRef.current.scrollTo({
+        top: 0, // 最新のセグメント（上）にスクロール
+        behavior: 'smooth'
+      });
+    } else {
+      console.warn('🎯 scrollContainerRef.currentがnullです');
     }
   };
 
   const handleScrollToTop = () => {
+    console.log('🎯 古い文字起こしにスクロール');
     if (scrollContainerRef.current) {
-      scrollContainerRef.current.scrollTop = 0;
+      scrollContainerRef.current.scrollTo({
+        top: scrollContainerRef.current.scrollHeight, // 古いセグメント（下）にスクロール
+        behavior: 'smooth'
+      });
+    } else {
+      console.warn('🎯 scrollContainerRef.currentがnullです');
     }
   };
 
@@ -175,11 +201,11 @@ const LiveTranscriptDisplay: React.FC<LiveTranscriptDisplayProps> = ({
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-md p-6">
-      {/* ヘッダー */}
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center space-x-4">
-          <h2 className="text-xl font-semibold text-gray-900">ライブ文字起こし</h2>
+    <div className="bg-white rounded-lg shadow-md p-4 h-full overflow-hidden flex flex-col">
+      {/* ヘッダー（固定高さ） */}
+      <div className="flex items-center justify-between mb-2 flex-shrink-0 h-10">
+        <div className="flex items-center space-x-2">
+          <h2 className="text-lg font-semibold text-gray-900">ライブ文字起こし</h2>
           <div className="flex items-center space-x-2">
             <div className={`w-3 h-3 rounded-full ${isSTTActive ? 'bg-green-500' : 'bg-red-500'}`}></div>
             <span className="text-sm text-gray-600">
@@ -191,21 +217,21 @@ const LiveTranscriptDisplay: React.FC<LiveTranscriptDisplayProps> = ({
         <div className="flex items-center space-x-2">
           <button
             onClick={handleScrollToTop}
-            className="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors"
-            title="最上部にスクロール"
+            className="px-2 py-1 text-sm bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors"
+            title="古い文字起こしにスクロール"
           >
             ↑
           </button>
           <button
             onClick={handleScrollToBottom}
-            className="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors"
-            title="最下部にスクロール"
+            className="px-2 py-1 text-sm bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors"
+            title="最新の文字起こしにスクロール"
           >
             ↓
           </button>
           <button
             onClick={handleClearTranscript}
-            className="px-3 py-1 text-sm bg-red-100 text-red-700 rounded hover:bg-red-200 transition-colors"
+            className="px-2 py-1 text-sm bg-red-100 text-red-700 rounded hover:bg-red-200 transition-colors"
             title="文字起こしをクリア"
           >
             クリア
@@ -214,8 +240,8 @@ const LiveTranscriptDisplay: React.FC<LiveTranscriptDisplayProps> = ({
       </div>
 
       {/* 設定パネル */}
-      <div className="mb-4 p-3 bg-gray-50 rounded-lg">
-        <div className="flex items-center space-x-4 text-sm">
+      <div className="mb-2 p-2 bg-gray-50 rounded-lg flex-shrink-0"> {/* flex-shrink-0を追加 */}
+        <div className="flex items-center space-x-3 text-sm">
           <label className="flex items-center">
             <input
               type="checkbox"
@@ -232,7 +258,7 @@ const LiveTranscriptDisplay: React.FC<LiveTranscriptDisplayProps> = ({
               onChange={(e) => setDisplaySettings(prev => ({ ...prev, showTimestamps: e.target.checked }))}
               className="mr-2"
             />
-            タイムスタンプ表示
+            タイムスタンプ
           </label>
           <label className="flex items-center">
             <input
@@ -241,7 +267,7 @@ const LiveTranscriptDisplay: React.FC<LiveTranscriptDisplayProps> = ({
               onChange={(e) => setDisplaySettings(prev => ({ ...prev, showConfidence: e.target.checked }))}
               className="mr-2"
             />
-            信頼度表示
+            信頼度
           </label>
         </div>
       </div>
@@ -265,11 +291,43 @@ const LiveTranscriptDisplay: React.FC<LiveTranscriptDisplayProps> = ({
         </div>
       )}
 
-      {/* 文字起こし表示エリア */}
+      {/* 統計情報 */}
+      {segments.length > 0 && (
+        <div className="mb-2 p-2 bg-gray-50 rounded-lg flex-shrink-0"> {/* flex-shrink-0を追加 */}
+          <div className="grid grid-cols-4 gap-2 text-sm">
+            <div className="text-center">
+              <div className="font-medium text-gray-700">{segments.length}</div>
+              <div className="text-gray-500">セグメント</div>
+            </div>
+            <div className="text-center">
+              <div className="font-medium text-gray-700">
+                {segments.reduce((total, segment) => total + segment.text.split(/\s+/).length, 0)}
+              </div>
+              <div className="text-gray-500">単語数</div>
+            </div>
+            <div className="text-center">
+              <div className="font-medium text-gray-700">
+                {new Set(segments.map(s => s.speaker).filter(Boolean)).size}
+              </div>
+              <div className="text-gray-500">話者</div>
+            </div>
+            <div className="text-center">
+              <div className="font-medium text-gray-700">
+                {segments.length > 0 
+                  ? (segments.reduce((sum, segment) => sum + segment.confidence, 0) / segments.length * 100).toFixed(1)
+                  : '0'
+                }%
+              </div>
+              <div className="text-gray-500">信頼度</div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 文字起こし表示エリア（残りのスペース） */}
       <div
         ref={scrollContainerRef}
-        className="border rounded-lg p-4 bg-gray-50"
-        style={{ maxHeight, overflowY: 'auto' }}
+        className="border rounded-lg p-3 bg-gray-50 flex-1 min-h-0 overflow-y-auto"
       >
         {segments.length === 0 ? (
           <div className="text-center text-gray-500 py-8">
@@ -286,105 +344,40 @@ const LiveTranscriptDisplay: React.FC<LiveTranscriptDisplayProps> = ({
             )}
           </div>
         ) : (
-          <div className="space-y-3">
-            {segments.map((segment, index) => (
+          <div className="space-y-1">
+            {segments
+              .sort((a, b) => Number(b.timestamp) - Number(a.timestamp)) // タイムスタンプの降順でソート
+              .map((segment, index) => (
               <div
                 key={segment.id}
-                ref={index === segments.length - 1 ? lastSegmentRef : null}
-                className={`p-3 rounded-lg border-l-4 transition-all duration-200 ${
+                ref={index === 0 ? lastSegmentRef : null}
+                className={`p-2 rounded border-l-2 transition-all duration-200 text-sm ${
                   segment.isFinal 
-                    ? 'bg-white border-green-500 shadow-sm' 
-                    : 'bg-yellow-50 border-yellow-400 shadow-sm'
+                    ? 'bg-white border-green-500' 
+                    : 'bg-yellow-50 border-yellow-400'
                 }`}
               >
-                {/* ヘッダー */}
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center space-x-2">
-                    {segment.speaker && (
-                      <div
-                        className="w-3 h-3 rounded-full"
-                        style={{ backgroundColor: getSpeakerColor(segment.speaker) }}
-                      ></div>
-                    )}
-                    <span className="text-sm font-medium text-gray-700">
-                      {segment.speaker ? getSpeakerName(segment.speaker) : '不明な話者'}
-                    </span>
-                    {!segment.isFinal && (
-                      <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded">
-                        仮確定
-                      </span>
-                    )}
-                  </div>
-                  
-                  <div className="flex items-center space-x-2 text-xs text-gray-500">
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-800 flex-1">
+                    {segment.text}
+                  </span>
+                  <div className="flex items-center space-x-2 text-xs text-gray-500 ml-2">
                     {displaySettings.showTimestamps && (
-                      <span>
-                        {formatTimestamp(segment.startTime)} - {formatTimestamp(segment.endTime)}
-                        <span className="ml-1">
-                          ({formatDuration(segment.startTime, segment.endTime)})
-                        </span>
-                      </span>
+                      <span>{formatTimestamp(segment.startTime)}</span>
                     )}
                     {displaySettings.showConfidence && (
-                      <span className="bg-gray-100 px-2 py-1 rounded">
-                        {(segment.confidence * 100).toFixed(1)}%
-                      </span>
+                      <span>{(segment.confidence * 100).toFixed(0)}%</span>
+                    )}
+                    {!segment.isFinal && (
+                      <span className="text-yellow-600">仮</span>
                     )}
                   </div>
-                </div>
-
-                {/* テキスト */}
-                <div className="text-gray-800 leading-relaxed">
-                  {segment.text}
-                </div>
-
-                {/* フッター */}
-                <div className="flex items-center justify-between mt-2 text-xs text-gray-500">
-                                  <div className="flex items-center space-x-2">
-                  <span>ID: {segment.id.slice(-8)}</span>
-                  </div>
-                  <span>
-                    {new Date(segment.timestamp).toLocaleTimeString()}
-                  </span>
                 </div>
               </div>
             ))}
           </div>
         )}
       </div>
-
-      {/* 統計情報 */}
-      {segments.length > 0 && (
-        <div className="mt-4 p-3 bg-gray-50 rounded-lg">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-            <div className="text-center">
-              <div className="font-medium text-gray-700">{segments.length}</div>
-              <div className="text-gray-500">セグメント数</div>
-            </div>
-            <div className="text-center">
-              <div className="font-medium text-gray-700">
-                {segments.reduce((total, segment) => total + segment.text.split(/\s+/).length, 0)}
-              </div>
-              <div className="text-gray-500">総単語数</div>
-            </div>
-            <div className="text-center">
-              <div className="font-medium text-gray-700">
-                {new Set(segments.map(s => s.speaker).filter(Boolean)).size}
-              </div>
-              <div className="text-gray-500">話者数</div>
-            </div>
-            <div className="text-center">
-              <div className="font-medium text-gray-700">
-                {segments.length > 0 
-                  ? (segments.reduce((sum, segment) => sum + segment.confidence, 0) / segments.length * 100).toFixed(1)
-                  : '0'
-                }%
-              </div>
-              <div className="text-gray-500">平均信頼度</div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

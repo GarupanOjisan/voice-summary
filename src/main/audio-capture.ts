@@ -1,5 +1,5 @@
 import { EventEmitter } from 'events';
-import { exec } from 'child_process';
+import { exec, spawn } from 'child_process';
 import { promisify } from 'util';
 
 const execAsync = promisify(exec);
@@ -77,16 +77,30 @@ export class AudioCapture extends EventEmitter {
     try {
       // macOS CoreAudioを使用した音声キャプチャ
       // 実際の実装では、FFmpegやsoxなどの外部ツールを使用
-      const command = this.buildCaptureCommand();
+      const args = this.buildCaptureArgs();
 
-      this.captureProcess = exec(command, (error, stdout) => {
-        if (error) {
-          this.emit('error', error);
-          return;
-        }
+      console.log(`音声キャプチャコマンド: ffmpeg ${args.join(' ')}`);
 
-        // 音声データを処理
-        this.processAudioData(stdout);
+      this.captureProcess = spawn('ffmpeg', args);
+      
+      // stdoutから音声データを受信
+      this.captureProcess.stdout.on('data', (data: Buffer) => {
+        this.emit('audioData', data);
+      });
+
+      this.captureProcess.stderr.on('data', (data: Buffer) => {
+        console.log('FFmpeg stderr:', data.toString());
+      });
+
+      this.captureProcess.on('error', (error: Error) => {
+        console.error('音声キャプチャプロセスエラー:', error);
+        this.emit('error', error);
+      });
+
+      this.captureProcess.on('exit', (code: number) => {
+        console.log(`音声キャプチャプロセス終了: ${code}`);
+        this.isCapturing = false;
+        this.emit('stopped');
       });
 
       this.isCapturing = true;
@@ -133,16 +147,37 @@ export class AudioCapture extends EventEmitter {
 
     try {
       // 仮想オーディオデバイス（BlackHole）からのキャプチャコマンド
-      const command = `ffmpeg -f avfoundation -i "${deviceName}" -ar ${this.options.sampleRate} -ac ${this.options.channels} -f s16le -`;
+      const args = [
+        '-f', 'avfoundation',
+        '-i', deviceName,
+        '-ar', this.options.sampleRate!.toString(),
+        '-ac', this.options.channels!.toString(),
+        '-f', 's16le',
+        '-'
+      ];
 
-      this.captureProcess = exec(command, (error, stdout) => {
-        if (error) {
-          this.emit('error', error);
-          return;
-        }
+      console.log(`仮想オーディオキャプチャコマンド: ffmpeg ${args.join(' ')}`);
 
-        // 音声データを処理
-        this.processAudioData(stdout);
+      this.captureProcess = spawn('ffmpeg', args);
+      
+      // stdoutから音声データを受信
+      this.captureProcess.stdout.on('data', (data: Buffer) => {
+        this.emit('audioData', data);
+      });
+
+      this.captureProcess.stderr.on('data', (data: Buffer) => {
+        console.log('FFmpeg stderr:', data.toString());
+      });
+
+      this.captureProcess.on('error', (error: Error) => {
+        console.error('仮想オーディオキャプチャプロセスエラー:', error);
+        this.emit('error', error);
+      });
+
+      this.captureProcess.on('exit', (code: number) => {
+        console.log(`仮想オーディオキャプチャプロセス終了: ${code}`);
+        this.isCapturing = false;
+        this.emit('stopped');
       });
 
       this.isCapturing = true;
@@ -170,16 +205,40 @@ export class AudioCapture extends EventEmitter {
 
     try {
       // システム音声とマイク音声を混合するFFmpegコマンド
-      const command = `ffmpeg -f avfoundation -i "${systemDevice}" -f avfoundation -i "${micDevice}" -filter_complex "[0:a][1:a]amix=inputs=2:duration=longest" -ar ${this.options.sampleRate} -ac ${this.options.channels} -f s16le -`;
+      const args = [
+        '-f', 'avfoundation',
+        '-i', systemDevice,
+        '-f', 'avfoundation',
+        '-i', micDevice,
+        '-filter_complex', '[0:a][1:a]amix=inputs=2:duration=longest',
+        '-ar', this.options.sampleRate!.toString(),
+        '-ac', this.options.channels!.toString(),
+        '-f', 's16le',
+        '-'
+      ];
 
-      this.captureProcess = exec(command, (error, stdout) => {
-        if (error) {
-          this.emit('error', error);
-          return;
-        }
+      console.log(`混合音声キャプチャコマンド: ffmpeg ${args.join(' ')}`);
 
-        // 音声データを処理
-        this.processAudioData(stdout);
+      this.captureProcess = spawn('ffmpeg', args);
+      
+      // stdoutから音声データを受信
+      this.captureProcess.stdout.on('data', (data: Buffer) => {
+        this.emit('audioData', data);
+      });
+
+      this.captureProcess.stderr.on('data', (data: Buffer) => {
+        console.log('FFmpeg stderr:', data.toString());
+      });
+
+      this.captureProcess.on('error', (error: Error) => {
+        console.error('混合音声キャプチャプロセスエラー:', error);
+        this.emit('error', error);
+      });
+
+      this.captureProcess.on('exit', (code: number) => {
+        console.log(`混合音声キャプチャプロセス終了: ${code}`);
+        this.isCapturing = false;
+        this.emit('stopped');
       });
 
       this.isCapturing = true;
@@ -193,37 +252,77 @@ export class AudioCapture extends EventEmitter {
   }
 
   /**
-   * キャプチャコマンドを構築
+   * 内蔵マイクのみからの音声キャプチャを開始
    */
-  private buildCaptureCommand(): string {
-    const { sampleRate, channels } = this.options;
+  async startMicrophoneCapture(micDevice?: string): Promise<void> {
+    if (this.isCapturing) {
+      throw new Error('音声キャプチャは既に開始されています');
+    }
 
-    // FFmpegを使用した音声キャプチャコマンド
-    // 実際の実装では、デバイスIDに基づいて適切なデバイスを選択
-    return `ffmpeg -f avfoundation -i ":0" -ar ${sampleRate} -ac ${channels} -f s16le -`;
+    try {
+      // デフォルトは内蔵マイクを使用（インデックス1: MacBook Airのマイク）
+      const deviceName = micDevice || 'MacBook Airのマイク';
+      
+      // 内蔵マイクのみを使用するFFmpeg引数（インデックス1を使用）
+      const args = [
+        '-f', 'avfoundation',
+        '-i', ':1',
+        '-ar', this.options.sampleRate!.toString(),
+        '-ac', this.options.channels!.toString(),
+        '-f', 's16le',
+        '-'
+      ];
+
+      console.log(`音声キャプチャコマンド: ffmpeg ${args.join(' ')}`);
+
+      this.captureProcess = spawn('ffmpeg', args);
+      
+      // stdoutから音声データを受信
+      this.captureProcess.stdout.on('data', (data: Buffer) => {
+        this.emit('audioData', data);
+      });
+
+      this.captureProcess.stderr.on('data', (data: Buffer) => {
+        console.log('FFmpeg stderr:', data.toString());
+      });
+
+      this.captureProcess.on('error', (error: Error) => {
+        console.error('音声キャプチャプロセスエラー:', error);
+        this.emit('error', error);
+      });
+
+      this.captureProcess.on('exit', (code: number) => {
+        console.log(`音声キャプチャプロセス終了: ${code}`);
+        this.isCapturing = false;
+        this.emit('stopped');
+      });
+
+      this.isCapturing = true;
+      this.emit('started');
+
+      console.log(`内蔵マイク "${deviceName}" からの音声キャプチャを開始しました`);
+    } catch (error) {
+      console.error('内蔵マイク音声キャプチャ開始エラー:', error);
+      throw error;
+    }
   }
 
   /**
-   * 音声データを処理
+   * キャプチャ引数を構築
    */
-  private processAudioData(data: string): void {
-    try {
-      // 音声データをバッファに変換
-      const buffer = Buffer.from(data, 'binary');
+  private buildCaptureArgs(): string[] {
+    const { sampleRate, channels } = this.options;
 
-      // 250msチャンクに分割
-      const chunkSize = Math.floor(
-        this.options.sampleRate! * this.options.channels! * 2 * 0.25
-      ); // 16bit = 2 bytes
-
-      for (let i = 0; i < buffer.length; i += chunkSize) {
-        const chunk = buffer.slice(i, i + chunkSize);
-        this.emit('audioData', chunk);
-      }
-    } catch (error) {
-      console.error('音声データ処理エラー:', error);
-      this.emit('error', error);
-    }
+    // FFmpegを使用した音声キャプチャ引数
+    // 実際の実装では、デバイスIDに基づいて適切なデバイスを選択
+    return [
+      '-f', 'avfoundation',
+      '-i', ':0',
+      '-ar', sampleRate!.toString(),
+      '-ac', channels!.toString(),
+      '-f', 's16le',
+      '-'
+    ];
   }
 
   /**

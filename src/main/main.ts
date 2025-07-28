@@ -4,6 +4,7 @@ import { AudioManager } from './audio-manager';
 import { initializeLLMSettingsHandlers } from './llm-settings-handlers';
 
 let mainWindow: BrowserWindow | null = null;
+let audioManager: AudioManager | null = null;
 
 const isDev = process.env.NODE_ENV === 'development';
 
@@ -39,6 +40,7 @@ function createWindow(): void {
 
   mainWindow.on('closed', () => {
     mainWindow = null;
+    audioManager = null;
   });
 }
 
@@ -78,8 +80,10 @@ app.whenReady().then(() => {
   createWindow();
   createMenu();
 
-  // AudioManagerを初期化
-  new AudioManager();
+  // AudioManagerを初期化（mainWindowを渡す）
+  if (mainWindow) {
+    audioManager = new AudioManager(mainWindow);
+  }
 
   // LLM設定ハンドラーを初期化
   initializeLLMSettingsHandlers();
@@ -87,6 +91,9 @@ app.whenReady().then(() => {
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       createWindow();
+      if (mainWindow) {
+        audioManager = new AudioManager(mainWindow);
+      }
     }
   });
 });

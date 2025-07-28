@@ -26,7 +26,7 @@ export class AudioBuffer extends EventEmitter {
     super();
     this.options = {
       maxBufferSize: 1024 * 1024, // 1MB
-      chunkDuration: 0.25, // 250ms
+      chunkDuration: 1.0, // 1秒（250msから変更）
       sampleRate: 16000,
       channels: 1,
       bitDepth: 16,
@@ -38,6 +38,12 @@ export class AudioBuffer extends EventEmitter {
    * 音声データをバッファに追加
    */
   addAudioData(data: Buffer): void {
+    // データがBufferでない場合はエラーとして処理
+    if (!Buffer.isBuffer(data)) {
+      console.error('AudioBuffer.addAudioData: データがBufferではありません', typeof data, data);
+      return;
+    }
+
     if (this.bufferSize + data.length > this.options.maxBufferSize!) {
       // バッファが一杯になった場合、古いデータを削除
       this.trimBuffer(data.length);
@@ -112,6 +118,14 @@ export class AudioBuffer extends EventEmitter {
 
     while (remainingSize > 0 && this.buffer.length > 0) {
       const currentChunk = this.buffer[0];
+      
+      // チャンクがBufferでない場合はスキップ
+      if (!Buffer.isBuffer(currentChunk)) {
+        console.error('AudioBuffer.extractChunk: バッファ内に無効なデータが含まれています', typeof currentChunk, currentChunk);
+        this.buffer.shift(); // 無効なデータを削除
+        continue;
+      }
+      
       const chunkSize = Math.min(remainingSize, currentChunk.length);
 
       if (chunkSize === currentChunk.length) {
@@ -131,6 +145,11 @@ export class AudioBuffer extends EventEmitter {
 
     // バッファサイズを更新
     this.bufferSize -= extractedSize;
+
+    // チャンクが空の場合はnullを返す
+    if (chunks.length === 0) {
+      return null;
+    }
 
     // 複数のチャンクを結合
     return Buffer.concat(chunks);

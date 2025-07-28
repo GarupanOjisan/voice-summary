@@ -58,7 +58,7 @@ export class TranscriptAggregator extends EventEmitter {
   constructor(config: Partial<TranscriptAggregatorConfig> = {}) {
     super();
     this.config = {
-      batchInterval: 500,
+      batchInterval: 2000, // 2秒（500msから変更）
       maxSegmentGap: 2000,
       minSegmentDuration: 100,
       confidenceThreshold: 0.3,
