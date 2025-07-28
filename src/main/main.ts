@@ -1,5 +1,6 @@
 import { app, BrowserWindow, Menu } from 'electron';
 import * as path from 'path';
+import { AudioManager } from './audio-manager';
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -70,6 +71,9 @@ function createMenu(): void {
 app.whenReady().then(() => {
   createWindow();
   createMenu();
+
+  // AudioManagerを初期化
+  new AudioManager();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
