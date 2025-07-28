@@ -8,6 +8,7 @@ import {
 } from './stt-provider';
 import { STTProviderFactory } from './stt-provider-factory';
 import { STTErrorHandler, STTErrorType, STTErrorSeverity } from './stt-error-handler';
+import { TranscriptAggregator, TranscriptSegment } from './transcript-aggregator';
 
 export interface STTManagerConfig {
   defaultProvider: STTProviderType;
@@ -24,6 +25,16 @@ export interface STTManagerConfig {
     notifyOnCritical: boolean;
     errorThreshold: number;
     autoRecovery: boolean;
+  };
+  transcriptAggregation?: {
+    batchInterval: number;
+    maxSegmentGap: number;
+    minSegmentDuration: number;
+    confidenceThreshold: number;
+    enableSpeakerSeparation: boolean;
+    enableAutoCleanup: boolean;
+    cleanupInterval: number;
+    maxSegmentsInMemory: number;
   };
 }
 
@@ -43,6 +54,7 @@ export class STTManager extends EventEmitter {
   private config: STTManagerConfig;
   private isStreaming = false;
   private errorHandler: STTErrorHandler;
+  private transcriptAggregator: TranscriptAggregator;
 
   constructor(config: STTManagerConfig) {
     super();
@@ -61,6 +73,19 @@ export class STTManager extends EventEmitter {
     };
     this.errorHandler = new STTErrorHandler(errorConfig);
     
+    // トランスクリプト集約マネージャーを初期化
+    const aggregationConfig = config.transcriptAggregation || {
+      batchInterval: 500,
+      maxSegmentGap: 2000,
+      minSegmentDuration: 100,
+      confidenceThreshold: 0.3,
+      enableSpeakerSeparation: true,
+      enableAutoCleanup: true,
+      cleanupInterval: 30000,
+      maxSegmentsInMemory: 10000,
+    };
+    this.transcriptAggregator = new TranscriptAggregator(aggregationConfig);
+    
     // エラーハンドラーのイベントをリレー
     this.errorHandler.on('errorThresholdExceeded', () => {
       this.emit('errorThresholdExceeded');
@@ -68,6 +93,23 @@ export class STTManager extends EventEmitter {
     
     this.errorHandler.on('criticalError', (error) => {
       this.emit('criticalError', error);
+    });
+    
+    // トランスクリプト集約マネージャーのイベントをリレー
+    this.transcriptAggregator.on('segmentAdded', (segment) => {
+      this.emit('transcriptSegmentAdded', segment);
+    });
+    
+    this.transcriptAggregator.on('batchProcessed', (transcript) => {
+      this.emit('transcriptBatchProcessed', transcript);
+    });
+    
+    this.transcriptAggregator.on('sessionStarted', (data) => {
+      this.emit('transcriptSessionStarted', data);
+    });
+    
+    this.transcriptAggregator.on('sessionStopped', (data) => {
+      this.emit('transcriptSessionStopped', data);
     });
   }
 
@@ -95,6 +137,20 @@ export class STTManager extends EventEmitter {
         // イベントリスナーを設定
         provider.on('transcriptionResult', (result: STTTranscriptionResult) => {
           this.emit('transcriptionResult', { provider: type, result });
+          
+          // トランスクリプト集約マネージャーに追加
+          if (this.transcriptAggregator) {
+            const segment: Omit<TranscriptSegment, 'id' | 'timestamp'> = {
+              startTime: result.timestamp,
+              endTime: result.timestamp + 1000, // 仮の終了時間
+              text: result.text,
+              confidence: result.confidence,
+              speaker: result.segments?.[0]?.speaker,
+              isFinal: result.isFinal,
+              language: result.language,
+            };
+            this.transcriptAggregator.addSegment(segment);
+          }
         });
 
         provider.on('transcriptionComplete', (result: STTTranscriptionResult) => {
@@ -211,6 +267,9 @@ export class STTManager extends EventEmitter {
     }
 
     try {
+      // トランスクリプト集約セッションを開始
+      this.transcriptAggregator.startSession();
+      
       await this.currentProvider.startStreaming(options);
       this.isStreaming = true;
       this.emit('streamingStarted');
@@ -246,10 +305,20 @@ export class STTManager extends EventEmitter {
       if (this.currentProvider) {
         await this.currentProvider.stopStreaming();
       }
+      
+      // トランスクリプト集約セッションを停止
+      const finalTranscript = this.transcriptAggregator.stopSession();
+      
       this.isStreaming = false;
       this.emit('streamingStopped');
+      
+      if (finalTranscript) {
+        this.emit('finalTranscript', finalTranscript);
+      }
     } catch (error) {
-      console.error('ストリーミング停止エラー:', error);
+      this.errorHandler.handleError(error instanceof Error ? error : new Error(String(error)), STTErrorType.UNKNOWN_ERROR, STTErrorSeverity.MEDIUM, {
+        operation: 'stopStreaming'
+      });
       throw error;
     }
   }
@@ -391,6 +460,32 @@ export class STTManager extends EventEmitter {
    */
   updateErrorHandlerConfig(config: any) {
     this.errorHandler.updateConfig(config);
+  }
+
+  /**
+   * トランスクリプト集約機能の情報を取得
+   */
+  getTranscriptAggregatorInfo() {
+    return {
+      currentSession: this.transcriptAggregator.getCurrentSession(),
+      speakers: this.transcriptAggregator.getSpeakers(),
+      latestTranscript: this.transcriptAggregator.getLatestTranscript(),
+      config: this.transcriptAggregator.getConfig(),
+    };
+  }
+
+  /**
+   * トランスクリプト集約設定を更新
+   */
+  updateTranscriptAggregatorConfig(config: any) {
+    this.transcriptAggregator.updateConfig(config);
+  }
+
+  /**
+   * 集約されたトランスクリプトを取得
+   */
+  getAggregatedTranscripts() {
+    return this.transcriptAggregator.getAggregatedTranscripts();
   }
 
   /**
