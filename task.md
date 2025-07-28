@@ -113,10 +113,10 @@
 
 ### 5.1 メインUI設計・実装
 
-- [ ] Electron ウィンドウ設計
-- [ ] React コンポーネント設計
-- [ ] タブ形式UI（Transcript/Topics/Highlights）
-- [ ] レスポンシブデザイン対応
+- [x] Electron ウィンドウ設計
+- [x] React コンポーネント設計
+- [x] タブ形式UI（Transcript/Topics/Highlights）
+- [x] レスポンシブデザイン対応
 
 ### 5.2 状態管理
 
