@@ -13,6 +13,10 @@ import {
 } from './streaming-transcription';
 import { STTManager, STTManagerConfig } from './stt-manager';
 import { STTProviderType } from './stt-provider';
+import { STTService, STTServiceConfig } from './stt-service';
+import { STTErrorHandlerConfig } from './stt-error-handler';
+import { STTConfigManagerConfig } from './stt-config-manager';
+import path from 'path';
 
 export class AudioManager {
   private audioCapture: AudioCapture | null = null;
@@ -21,6 +25,7 @@ export class AudioManager {
   private whisperManager: WhisperManager;
   private streamingTranscription: StreamingTranscription | null = null;
   private sttManager: STTManager;
+  private sttService: STTService;
   private devices: AudioDevice[] = [];
 
   constructor() {
@@ -44,6 +49,34 @@ export class AudioManager {
     };
     
     this.sttManager = new STTManager(sttConfig);
+    
+    // STTサービスを初期化
+    const errorHandlerConfig: STTErrorHandlerConfig = {
+      maxRetries: 3,
+      retryDelay: 1000,
+      exponentialBackoff: true,
+      logErrors: true,
+      notifyOnCritical: true,
+      errorThreshold: 10,
+      autoRecovery: true,
+    };
+
+    const configManagerConfig: STTConfigManagerConfig = {
+      configDir: path.join(process.cwd(), 'config'),
+      defaultProfileId: 'whisper-local',
+      autoSave: true,
+      backupEnabled: true,
+      maxBackups: 5,
+    };
+
+    const sttServiceConfig: STTServiceConfig = {
+      configDir: path.join(process.cwd(), 'config'),
+      defaultProfileId: 'whisper-local',
+      errorHandlerConfig,
+      configManagerConfig,
+    };
+
+    this.sttService = new STTService(sttServiceConfig);
     this.setupIpcHandlers();
   }
 
@@ -323,6 +356,178 @@ export class AudioManager {
         return { success: true };
       } catch (error) {
         console.error('STT設定更新エラー:', error);
+        return { success: false, error: (error as Error).message };
+      }
+    });
+
+    // STTサービス関連のIPCハンドラー
+    // サービス初期化
+    ipcMain.handle('initialize-stt-service', async () => {
+      try {
+        const success = await this.sttService.initialize();
+        return { success, error: success ? undefined : 'STTサービスの初期化に失敗しました' };
+      } catch (error) {
+        console.error('STTサービス初期化エラー:', error);
+        return { success: false, error: (error as Error).message };
+      }
+    });
+
+    // サービス状態取得
+    ipcMain.handle('get-stt-service-status', () => {
+      try {
+        return this.sttService.getStatus();
+      } catch (error) {
+        console.error('STTサービス状態取得エラー:', error);
+        return null;
+      }
+    });
+
+    // プロファイル管理
+    ipcMain.handle('get-stt-profiles', () => {
+      try {
+        return this.sttService.getAllProfiles();
+      } catch (error) {
+        console.error('STTプロファイル取得エラー:', error);
+        return [];
+      }
+    });
+
+    ipcMain.handle('get-current-stt-profile', () => {
+      try {
+        return this.sttService.getCurrentProfile();
+      } catch (error) {
+        console.error('現在のSTTプロファイル取得エラー:', error);
+        return null;
+      }
+    });
+
+    ipcMain.handle('switch-stt-profile', async (event, profileId: string) => {
+      try {
+        const success = await this.sttService.switchProfile(profileId);
+        return { success, error: success ? undefined : 'プロファイルの切り替えに失敗しました' };
+      } catch (error) {
+        console.error('STTプロファイル切り替えエラー:', error);
+        return { success: false, error: (error as Error).message };
+      }
+    });
+
+    ipcMain.handle('create-stt-profile', (event, name: string, engineConfig: any, defaultOptions: any, description?: string) => {
+      try {
+        const profileId = this.sttService.createProfile(name, engineConfig, defaultOptions, description);
+        return { success: true, profileId };
+      } catch (error) {
+        console.error('STTプロファイル作成エラー:', error);
+        return { success: false, error: (error as Error).message };
+      }
+    });
+
+    ipcMain.handle('update-stt-profile', (event, id: string, updates: any) => {
+      try {
+        const success = this.sttService.updateProfile(id, updates);
+        return { success, error: success ? undefined : 'プロファイルの更新に失敗しました' };
+      } catch (error) {
+        console.error('STTプロファイル更新エラー:', error);
+        return { success: false, error: (error as Error).message };
+      }
+    });
+
+    ipcMain.handle('delete-stt-profile', (event, id: string) => {
+      try {
+        const success = this.sttService.deleteProfile(id);
+        return { success, error: success ? undefined : 'プロファイルの削除に失敗しました' };
+      } catch (error) {
+        console.error('STTプロファイル削除エラー:', error);
+        return { success: false, error: (error as Error).message };
+      }
+    });
+
+    // エラー管理
+    ipcMain.handle('get-stt-error-stats', () => {
+      try {
+        return this.sttService.getErrorStats();
+      } catch (error) {
+        console.error('STTエラー統計取得エラー:', error);
+        return null;
+      }
+    });
+
+    ipcMain.handle('get-recent-stt-errors', (event, count: number = 10) => {
+      try {
+        return this.sttService.getRecentErrors(count);
+      } catch (error) {
+        console.error('STT最近のエラー取得エラー:', error);
+        return [];
+      }
+    });
+
+    ipcMain.handle('resolve-stt-error', (event, errorId: string) => {
+      try {
+        const success = this.sttService.resolveError(errorId);
+        return { success, error: success ? undefined : 'エラーの解決に失敗しました' };
+      } catch (error) {
+        console.error('STTエラー解決エラー:', error);
+        return { success: false, error: (error as Error).message };
+      }
+    });
+
+    ipcMain.handle('clear-stt-errors', () => {
+      try {
+        this.sttService.clearErrors();
+        return { success: true };
+      } catch (error) {
+        console.error('STTエラークリアエラー:', error);
+        return { success: false, error: (error as Error).message };
+      }
+    });
+
+    // 設定管理
+    ipcMain.handle('save-stt-config', () => {
+      try {
+        this.sttService.saveConfig();
+        return { success: true };
+      } catch (error) {
+        console.error('STT設定保存エラー:', error);
+        return { success: false, error: (error as Error).message };
+      }
+    });
+
+    ipcMain.handle('reload-stt-config', () => {
+      try {
+        this.sttService.reloadConfig();
+        return { success: true };
+      } catch (error) {
+        console.error('STT設定リロードエラー:', error);
+        return { success: false, error: (error as Error).message };
+      }
+    });
+
+    ipcMain.handle('reset-stt-config', () => {
+      try {
+        this.sttService.resetConfig();
+        return { success: true };
+      } catch (error) {
+        console.error('STT設定リセットエラー:', error);
+        return { success: false, error: (error as Error).message };
+      }
+    });
+
+    // プロファイルインポート/エクスポート
+    ipcMain.handle('export-stt-profile', (event, id: string) => {
+      try {
+        const data = this.sttService.exportProfile(id);
+        return { success: true, data };
+      } catch (error) {
+        console.error('STTプロファイルエクスポートエラー:', error);
+        return { success: false, error: (error as Error).message };
+      }
+    });
+
+    ipcMain.handle('import-stt-profile', (event, profileData: string) => {
+      try {
+        const profileId = this.sttService.importProfile(profileData);
+        return { success: true, profileId };
+      } catch (error) {
+        console.error('STTプロファイルインポートエラー:', error);
         return { success: false, error: (error as Error).message };
       }
     });

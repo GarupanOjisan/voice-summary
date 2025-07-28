@@ -7,6 +7,7 @@ import {
   STTStreamingOptions,
 } from './stt-provider';
 import { STTProviderFactory } from './stt-provider-factory';
+import { STTErrorHandler, STTErrorType, STTErrorSeverity } from './stt-error-handler';
 
 export interface STTManagerConfig {
   defaultProvider: STTProviderType;
@@ -15,6 +16,15 @@ export interface STTManagerConfig {
   };
   autoSwitch: boolean;
   fallbackProvider?: STTProviderType;
+  errorHandling?: {
+    maxRetries: number;
+    retryDelay: number;
+    exponentialBackoff: boolean;
+    logErrors: boolean;
+    notifyOnCritical: boolean;
+    errorThreshold: number;
+    autoRecovery: boolean;
+  };
 }
 
 export interface STTProviderStatus {
@@ -32,11 +42,33 @@ export class STTManager extends EventEmitter {
   private currentProvider: STTProvider | null = null;
   private config: STTManagerConfig;
   private isStreaming = false;
+  private errorHandler: STTErrorHandler;
 
   constructor(config: STTManagerConfig) {
     super();
     this.factory = new STTProviderFactory();
     this.config = config;
+    
+    // エラーハンドラーを初期化
+    const errorConfig = config.errorHandling || {
+      maxRetries: 3,
+      retryDelay: 1000,
+      exponentialBackoff: true,
+      logErrors: true,
+      notifyOnCritical: true,
+      errorThreshold: 5,
+      autoRecovery: true,
+    };
+    this.errorHandler = new STTErrorHandler(errorConfig);
+    
+    // エラーハンドラーのイベントをリレー
+    this.errorHandler.on('errorThresholdExceeded', () => {
+      this.emit('errorThresholdExceeded');
+    });
+    
+    this.errorHandler.on('criticalError', (error) => {
+      this.emit('criticalError', error);
+    });
   }
 
   /**
@@ -46,7 +78,12 @@ export class STTManager extends EventEmitter {
     try {
       const providerConfig = this.config.providers[type];
       if (!providerConfig) {
-        throw new Error(`プロバイダー ${type} の設定が見つかりません`);
+        const error = new Error(`プロバイダー ${type} の設定が見つかりません`);
+        this.errorHandler.handleError(error, STTErrorType.INVALID_REQUEST_ERROR, STTErrorSeverity.MEDIUM, {
+          provider: type,
+          operation: 'initialize'
+        });
+        return false;
       }
 
       const provider = this.factory.createProvider(type, providerConfig);
@@ -65,6 +102,11 @@ export class STTManager extends EventEmitter {
         });
 
         provider.on('error', (error: Error) => {
+          this.errorHandler.handleError(error, STTErrorType.PROVIDER_ERROR, STTErrorSeverity.MEDIUM, {
+            provider: type,
+            operation: 'streaming'
+          });
+          
           this.emit('providerError', { provider: type, error });
           
           // 自動切り替えが有効な場合、フォールバックプロバイダーに切り替え
@@ -84,11 +126,18 @@ export class STTManager extends EventEmitter {
         console.log(`プロバイダー ${type} を初期化しました`);
         return true;
       } else {
-        console.error(`プロバイダー ${type} の初期化に失敗しました`);
+        const error = new Error(`プロバイダー ${type} の初期化に失敗しました`);
+        this.errorHandler.handleError(error, STTErrorType.INITIALIZATION_ERROR, STTErrorSeverity.HIGH, {
+          provider: type,
+          operation: 'initialize'
+        });
         return false;
       }
     } catch (error) {
-      console.error(`プロバイダー ${type} の初期化エラー:`, error);
+      this.errorHandler.handleError(error instanceof Error ? error : new Error(String(error)), STTErrorType.INITIALIZATION_ERROR, STTErrorSeverity.HIGH, {
+        provider: type,
+        operation: 'initialize'
+      });
       return false;
     }
   }
@@ -146,11 +195,19 @@ export class STTManager extends EventEmitter {
    */
   async startStreaming(options: STTStreamingOptions = {}): Promise<void> {
     if (!this.currentProvider) {
-      throw new Error('現在のプロバイダーが設定されていません');
+      const error = new Error('現在のプロバイダーが設定されていません');
+      this.errorHandler.handleError(error, STTErrorType.INVALID_REQUEST_ERROR, STTErrorSeverity.MEDIUM, {
+        operation: 'startStreaming'
+      });
+      throw error;
     }
 
     if (this.isStreaming) {
-      throw new Error('ストリーミングは既に開始されています');
+      const error = new Error('ストリーミングは既に開始されています');
+      this.errorHandler.handleError(error, STTErrorType.INVALID_REQUEST_ERROR, STTErrorSeverity.LOW, {
+        operation: 'startStreaming'
+      });
+      throw error;
     }
 
     try {
@@ -158,7 +215,9 @@ export class STTManager extends EventEmitter {
       this.isStreaming = true;
       this.emit('streamingStarted');
     } catch (error) {
-      console.error('ストリーミング開始エラー:', error);
+      this.errorHandler.handleError(error instanceof Error ? error : new Error(String(error)), STTErrorType.PROVIDER_ERROR, STTErrorSeverity.HIGH, {
+        operation: 'startStreaming'
+      });
       
       // 自動切り替えが有効な場合、フォールバックプロバイダーを試行
       if (this.config.autoSwitch && this.config.fallbackProvider) {
@@ -314,6 +373,27 @@ export class STTManager extends EventEmitter {
   }
 
   /**
+   * エラー統計情報を取得
+   */
+  getErrorStats() {
+    return this.errorHandler.getErrorStats();
+  }
+
+  /**
+   * 最近のエラーを取得
+   */
+  getRecentErrors(count: number = 10) {
+    return this.errorHandler.getRecentErrors(count);
+  }
+
+  /**
+   * エラーハンドラーの設定を更新
+   */
+  updateErrorHandlerConfig(config: any) {
+    this.errorHandler.updateConfig(config);
+  }
+
+  /**
    * クリーンアップ
    */
   async cleanup(): Promise<void> {
@@ -333,7 +413,9 @@ export class STTManager extends EventEmitter {
       this.currentProvider = null;
       this.emit('cleanup');
     } catch (error) {
-      console.error('STTマネージャークリーンアップエラー:', error);
+      this.errorHandler.handleError(error instanceof Error ? error : new Error(String(error)), STTErrorType.UNKNOWN_ERROR, STTErrorSeverity.MEDIUM, {
+        operation: 'cleanup'
+      });
       throw error;
     }
   }
