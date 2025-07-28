@@ -1,58 +1,9 @@
-import React, { useState, useEffect } from 'react';
-
-interface Highlight {
-  id: string;
-  text: string;
-  speaker: string;
-  timestamp: string;
-  type: 'action' | 'decision' | 'important' | 'question';
-  confidence: number;
-}
+import React, { useState } from 'react';
+import { useSummaryStore } from '../stores';
 
 const HighlightsDisplay: React.FC = () => {
-  const [highlights, setHighlights] = useState<Highlight[]>([]);
+  const { highlights, isGenerating } = useSummaryStore();
   const [filter, setFilter] = useState<string>('all');
-  const [isLoading, setIsLoading] = useState(false);
-
-  // サンプルデータ（実際の実装ではAPIから取得）
-  useEffect(() => {
-    const sampleHighlights: Highlight[] = [
-      {
-        id: '1',
-        text: '来週の金曜日までにプロトタイプを完成させる',
-        speaker: '田中',
-        timestamp: '00:05:30',
-        type: 'action',
-        confidence: 0.95,
-      },
-      {
-        id: '2',
-        text: 'AWSの使用を決定し、クラウドインフラを構築する',
-        speaker: '佐藤',
-        timestamp: '00:08:15',
-        type: 'decision',
-        confidence: 0.92,
-      },
-      {
-        id: '3',
-        text: 'セキュリティ要件の見直しが必要だ',
-        speaker: '鈴木',
-        timestamp: '00:12:45',
-        type: 'important',
-        confidence: 0.88,
-      },
-      {
-        id: '4',
-        text: '予算はどの程度確保できるか？',
-        speaker: '高橋',
-        timestamp: '00:15:20',
-        type: 'question',
-        confidence: 0.90,
-      },
-    ];
-
-    setHighlights(sampleHighlights);
-  }, []);
 
   const getTypeColor = (type: string) => {
     switch (type) {
@@ -115,7 +66,7 @@ const HighlightsDisplay: React.FC = () => {
         ))}
       </div>
 
-      {isLoading ? (
+      {isGenerating ? (
         <div className="flex items-center justify-center h-64">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
         </div>
