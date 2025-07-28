@@ -531,6 +531,35 @@ export class AudioManager {
         return { success: false, error: (error as Error).message };
       }
     });
+
+    // トランスクリプト集約関連
+    ipcMain.handle('get-transcript-aggregator-info', () => {
+      try {
+        return this.sttManager.getTranscriptAggregatorInfo();
+      } catch (error) {
+        console.error('トランスクリプト集約情報取得エラー:', error);
+        return null;
+      }
+    });
+
+    ipcMain.handle('update-transcript-aggregator-config', (event, config: any) => {
+      try {
+        this.sttManager.updateTranscriptAggregatorConfig(config);
+        return { success: true };
+      } catch (error) {
+        console.error('トランスクリプト集約設定更新エラー:', error);
+        return { success: false, error: (error as Error).message };
+      }
+    });
+
+    ipcMain.handle('get-aggregated-transcripts', () => {
+      try {
+        return this.sttManager.getAggregatedTranscripts();
+      } catch (error) {
+        console.error('集約トランスクリプト取得エラー:', error);
+        return [];
+      }
+    });
   }
 
   /**

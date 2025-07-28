@@ -71,6 +71,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   exportSttProfile: (id: string) => ipcRenderer.invoke('export-stt-profile', id),
   importSttProfile: (profileData: string) => ipcRenderer.invoke('import-stt-profile', profileData),
 
+  // トランスクリプト集約関連
+  getTranscriptAggregatorInfo: () => ipcRenderer.invoke('get-transcript-aggregator-info'),
+  updateTranscriptAggregatorConfig: (config: any) => ipcRenderer.invoke('update-transcript-aggregator-config', config),
+  getAggregatedTranscripts: () => ipcRenderer.invoke('get-aggregated-transcripts'),
+
   // ファイル関連
   saveFile: (data: any, filename: string) =>
     ipcRenderer.invoke('save-file', data, filename),
@@ -166,6 +171,9 @@ declare global {
       resetSttConfig: () => Promise<{ success: boolean; error?: string }>;
       exportSttProfile: (id: string) => Promise<{ success: boolean; data?: string; error?: string }>;
       importSttProfile: (profileData: string) => Promise<{ success: boolean; profileId?: string; error?: string }>;
+      getTranscriptAggregatorInfo: () => Promise<any>;
+      updateTranscriptAggregatorConfig: (config: any) => Promise<{ success: boolean; error?: string }>;
+      getAggregatedTranscripts: () => Promise<any[]>;
       saveFile: (data: any, filename: string) => Promise<void>;
       openFile: () => Promise<any>;
       getSettings: () => Promise<any>;

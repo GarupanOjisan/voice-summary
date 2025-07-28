@@ -4,6 +4,7 @@ import { AudioQualityMonitor } from './components/AudioQualityMonitor';
 import VirtualAudioDeviceSetup from './components/VirtualAudioDeviceSetup';
 import WhisperSetup from './components/WhisperSetup';
 import STTProviderSetup from './components/STTProviderSetup';
+import TranscriptAggregator from './components/TranscriptAggregator';
 
 const App: React.FC = () => {
   return (
@@ -26,6 +27,10 @@ const App: React.FC = () => {
 
         <div className="mt-6">
           <STTProviderSetup />
+        </div>
+
+        <div className="mt-6">
+          <TranscriptAggregator />
         </div>
 
         <div className="mt-6 bg-white rounded-lg shadow-md p-6">
