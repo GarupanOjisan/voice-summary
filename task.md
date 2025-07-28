@@ -55,10 +55,10 @@
 
 ### 2.2 クラウドSTT API統合
 
-- [ ] AssemblyAI API統合
-- [ ] Deepgram API統合
-- [ ] Google STT API統合
-- [ ] WebSocket/HTTP2 ストリーミング実装
+- [x] AssemblyAI API統合
+- [x] Deepgram API統合
+- [x] Google STT API統合
+- [x] WebSocket/HTTP2 ストリーミング実装
 
 ### 2.3 STTエンジン抽象化
 
