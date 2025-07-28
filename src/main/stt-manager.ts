@@ -416,6 +416,10 @@ export class STTManager extends EventEmitter {
    * ストリーミング状態を取得
    */
   isStreamingActive(): boolean {
+    // 現在のプロバイダーのストリーミング状態を確認
+    if (this.currentProvider) {
+      return this.currentProvider.isStreamingActive();
+    }
     return this.isStreaming;
   }
 

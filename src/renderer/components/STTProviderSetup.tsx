@@ -208,6 +208,23 @@ const STTProviderSetup: React.FC = () => {
               {isStreamingActive() ? 'ストリーミング実行中' : 'ストリーミング停止中'}
             </span>
           </div>
+
+          {/* デバッグ情報 */}
+          <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+            <div className="text-xs font-medium text-gray-700 mb-2">デバッグ情報:</div>
+            <div className="text-xs text-gray-600 space-y-1">
+              <div>現在のプロバイダー: {currentProvider || 'null'}</div>
+              <div>サポートされているプロバイダー数: {supportedProviders.length}</div>
+              <div>プロバイダー状態数: {providerStatuses.length}</div>
+              <div>ストリーミングアクティブ: {isStreamingActive() ? 'true' : 'false'}</div>
+              <div>プロバイダー詳細:</div>
+              {providerStatuses.map((status, index) => (
+                <div key={index} className="ml-2">
+                  - {status.type}: 初期化={status.isInitialized ? 'true' : 'false'}, ストリーミング={status.isStreaming ? 'true' : 'false'}
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
 

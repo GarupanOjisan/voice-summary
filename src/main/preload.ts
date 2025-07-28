@@ -24,6 +24,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('start-virtual-audio-capture', deviceName),
   startMixedAudioCapture: (systemDevice: string, micDevice: string) =>
     ipcRenderer.invoke('start-mixed-audio-capture', systemDevice, micDevice),
+  startMicrophoneCapture: (micDevice?: string) =>
+    ipcRenderer.invoke('start-microphone-capture', micDevice),
 
   // Whisper関連
   getWhisperModels: () => ipcRenderer.invoke('get-whisper-models'),
@@ -49,6 +51,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   switchSttProvider: (providerType: string) => ipcRenderer.invoke('switch-stt-provider', providerType),
   startSttStreaming: (options: any) => ipcRenderer.invoke('start-stt-streaming', options),
   stopSttStreaming: () => ipcRenderer.invoke('stop-stt-streaming'),
+  getSttStreamingStatus: () => ipcRenderer.invoke('get-stt-streaming-status'),
   getCurrentSttProvider: () => ipcRenderer.invoke('get-current-stt-provider'),
   updateSttConfig: (config: any) => ipcRenderer.invoke('update-stt-config', config),
 
@@ -123,6 +126,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onTranscriptSessionStopped: (callback: (data: any) => void) => {
     ipcRenderer.on('transcript-session-stopped', (_, data) => callback(data));
   },
+  
+  // STTストリーミング状態イベント
+  onSttStreamingStatus: (callback: (data: any) => void) => {
+    ipcRenderer.on('stt-streaming-status', (_, data) => callback(data));
+  },
+  onSttError: (callback: (error: any) => void) => {
+    ipcRenderer.on('stt-error', (_, error) => callback(error));
+  },
 });
 
 // TypeScript型定義
@@ -155,6 +166,7 @@ declare global {
         systemDevice: string,
         micDevice: string
       ) => Promise<{ success: boolean; error?: string }>;
+      startMicrophoneCapture: (micDevice?: string) => Promise<{ success: boolean; error?: string }>;
       getWhisperModels: () => Promise<any[]>;
       getDownloadedWhisperModels: () => Promise<string[]>;
       downloadWhisperModel: (
@@ -179,8 +191,11 @@ declare global {
       switchSttProvider: (providerType: string) => Promise<{ success: boolean; error?: string }>;
       startSttStreaming: (options: any) => Promise<{ success: boolean; error?: string }>;
       stopSttStreaming: () => Promise<{ success: boolean; error?: string }>;
+      getSttStreamingStatus: () => Promise<any>;
       getCurrentSttProvider: () => Promise<string | null>;
       updateSttConfig: (config: any) => Promise<{ success: boolean; error?: string }>;
+
+      // STTサービス関連
       initializeSttService: () => Promise<{ success: boolean; error?: string }>;
       getSttServiceStatus: () => Promise<any>;
       getSttProfiles: () => Promise<any[]>;
@@ -212,6 +227,8 @@ declare global {
       onTranscriptBatchProcessed: (callback: (data: any) => void) => void;
       onTranscriptSessionStarted: (callback: (data: any) => void) => void;
       onTranscriptSessionStopped: (callback: (data: any) => void) => void;
+      onSttStreamingStatus: (callback: (data: any) => void) => void;
+      onSttError: (callback: (error: any) => void) => void;
     };
   }
 }

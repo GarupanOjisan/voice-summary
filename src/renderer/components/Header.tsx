@@ -5,6 +5,30 @@ const Header: React.FC = () => {
   const [showDropdown, setShowDropdown] = useState(false);
   const { isRecording, startRecording, stopRecording } = useAudioStore();
 
+  const handleToggleRecording = async () => {
+    if (isRecording) {
+      try {
+        await window.electronAPI.stopAudioCapture();
+        stopRecording();
+      } catch (error) {
+        console.error('録音停止エラー:', error);
+      }
+    } else {
+      try {
+        // 内蔵マイクキャプチャを開始
+        const result = await window.electronAPI.startMicrophoneCapture();
+        if (result.success) {
+          startRecording();
+          console.log('内蔵マイク録音を開始しました');
+        } else {
+          console.error('録音開始エラー:', result.error);
+        }
+      } catch (error) {
+        console.error('録音開始エラー:', error);
+      }
+    }
+  };
+
   return (
     <header className="bg-white border-b border-gray-200 px-6 py-4">
       <div className="flex items-center justify-between">
@@ -20,7 +44,7 @@ const Header: React.FC = () => {
         <div className="flex items-center space-x-4">
           {/* 録音ボタン */}
           <button
-            onClick={() => isRecording ? stopRecording() : startRecording()}
+            onClick={handleToggleRecording}
             className={`flex items-center space-x-2 px-6 py-2 rounded-full font-medium transition-all duration-200 ${
               isRecording
                 ? 'bg-red-500 text-white hover:bg-red-600 shadow-lg'

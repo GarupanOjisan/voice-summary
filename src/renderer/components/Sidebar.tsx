@@ -45,11 +45,11 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
   };
 
   return (
-    <div className={`bg-white border-r border-gray-200 transition-all duration-300 ${
+    <div className={`bg-white border-r border-gray-200 transition-all duration-300 flex flex-col ${
       isCollapsed ? 'w-16' : 'w-80'
-    }`}>
-      {/* ヘッダー */}
-      <div className="flex items-center justify-between p-4 border-b border-gray-200">
+    }`} style={{ height: 'calc(100vh - 64px)' }}>
+      {/* ヘッダー（固定高さ） */}
+      <div className="flex items-center justify-between p-4 border-b border-gray-200 flex-shrink-0">
         {!isCollapsed && <h2 className="text-lg font-semibold text-gray-900">設定</h2>}
         <button
           onClick={onToggle}
@@ -59,8 +59,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
         </button>
       </div>
 
-      {/* セクションタブ */}
-      <div className="flex border-b border-gray-200">
+      {/* セクションタブ（固定高さ） */}
+      <div className="flex border-b border-gray-200 flex-shrink-0">
         {sections.map((section) => (
           <button
             key={section.id}
@@ -77,8 +77,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
         ))}
       </div>
 
-      {/* コンテンツ */}
-      <div className="p-4 overflow-y-auto h-full">
+      {/* コンテンツ（残りのスペース） */}
+      <div className="p-4 overflow-y-auto flex-1 min-h-0">
         {!isCollapsed && renderSectionContent()}
       </div>
     </div>

@@ -114,10 +114,17 @@ export const useTranscriptionStore = create<TranscriptionState & TranscriptionAc
   retryCount: 0,
 
   // セグメント管理
-  addSegment: (segment) => set((state) => ({
-    segments: [...state.segments, segment],
-    lastUpdateTime: Date.now(),
-  })),
+  addSegment: (segment) => set((state) => {
+    console.log('🎯 transcriptionStore: セグメント追加', {
+      newSegment: { id: segment.id.slice(-8), text: segment.text.slice(0, 20) + '...' },
+      currentSegmentsCount: state.segments.length,
+      willBeFirst: true
+    });
+    return {
+      segments: [segment, ...state.segments], // 新しいセグメントを先頭に追加
+      lastUpdateTime: Date.now(),
+    };
+  }),
   
   updateSegment: (id, updates) => set((state) => ({
     segments: state.segments.map(segment =>

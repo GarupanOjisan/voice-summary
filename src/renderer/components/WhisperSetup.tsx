@@ -222,6 +222,17 @@ const WhisperSetup: React.FC = () => {
           <div className="text-sm text-gray-600">
             モデルディレクトリ: {settings?.modelsDir}
           </div>
+
+          {/* デバッグ情報 */}
+          <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+            <div className="text-xs font-medium text-gray-700 mb-2">デバッグ情報:</div>
+            <div className="text-xs text-gray-600 space-y-1">
+              <div>isInitialized: {settings?.isInitialized ? 'true' : 'false'}</div>
+              <div>currentModel: {settings?.model || 'null'}</div>
+              <div>ダウンロード済みモデル数: {downloadedModels.length}</div>
+              <div>baseモデルダウンロード済み: {isModelDownloaded('base') ? 'はい' : 'いいえ'}</div>
+            </div>
+          </div>
         </div>
       </div>
 

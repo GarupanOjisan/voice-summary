@@ -3,11 +3,13 @@ import {
   STTProviderConfig,
   STTProviderType,
   STTProviderFactory as ISTTProviderFactory,
+  STTTranscriptionResult,
 } from './stt-provider';
 import { AssemblyAIProvider } from './providers/assemblyai-provider';
 import { DeepgramProvider } from './providers/deepgram-provider';
 import { GoogleSTTProvider } from './providers/google-stt-provider';
 import { WhisperManager } from './whisper-manager';
+import * as path from 'path';
 
 export class STTProviderFactory implements ISTTProviderFactory {
   createProvider(type: STTProviderType, config: STTProviderConfig): STTProvider {
@@ -124,6 +126,7 @@ export class STTProviderFactory implements ISTTProviderFactory {
 // WhisperManagerをSTTProviderとしてラップするアダプタークラス
 class WhisperLocalProvider extends STTProvider {
   private whisperManager: WhisperManager;
+  private audioBuffer: Buffer[] = [];
 
   constructor(config: STTProviderConfig) {
     super(config);
@@ -175,13 +178,90 @@ class WhisperLocalProvider extends STTProvider {
     }
 
     try {
-      // WhisperManagerのストリーミング機能を使用
-      // 実際の実装では、音声データをバッファリングして処理
-      console.log('Whisper Localに音声データを送信:', data.length, 'bytes');
+      // 音声データをバッファに追加
+      this.audioBuffer.push(data);
+      
+      // バッファサイズをチェック（5秒分のデータがたまったら処理）
+      const totalSize = this.audioBuffer.reduce((sum, buffer) => sum + buffer.length, 0);
+      const targetSize = (this.config.sampleRate || 16000) * 5 * 2; // 5秒分の16bit音声データ
+      
+      if (totalSize >= targetSize) {
+        await this.processAudioBuffer();
+      }
     } catch (error) {
       console.error('音声データ送信エラー:', error);
       throw error;
     }
+  }
+
+  private async processAudioBuffer(): Promise<void> {
+    if (this.audioBuffer.length === 0) {
+      return;
+    }
+
+    try {
+      // バッファデータを結合
+      const audioData = Buffer.concat(this.audioBuffer);
+      this.audioBuffer = [];
+
+      // 一時ファイルに保存
+      const tempFilePath = path.join(require('os').tmpdir(), `whisper_${Date.now()}.wav`);
+      await this.saveAudioToFile(audioData, tempFilePath);
+
+      // Whisperで文字起こし
+      const result = await this.whisperManager.transcribeAudio(tempFilePath, {
+        language: this.config.language || 'ja',
+        temperature: 0,
+        suppressBlank: true,
+      });
+
+      // 結果をイベントとして発行
+      const transcriptionResult: STTTranscriptionResult = {
+        text: result.text,
+        confidence: 0.8, // 仮の信頼度
+        language: result.language,
+        isFinal: true,
+        timestamp: Date.now(),
+        segments: result.segments.map(segment => ({
+          start: segment.start,
+          end: segment.end,
+          text: segment.text,
+          confidence: segment.avgLogProb || 0.8,
+        })),
+      };
+
+      this.emit('transcriptionResult', transcriptionResult);
+
+      // 一時ファイルを削除
+      require('fs').unlinkSync(tempFilePath);
+    } catch (error) {
+      console.error('音声バッファ処理エラー:', error);
+    }
+  }
+
+  private async saveAudioToFile(audioData: Buffer, filePath: string): Promise<void> {
+    // 簡単なWAVファイルヘッダーを作成
+    const sampleRate = this.config.sampleRate || 16000;
+    const channels = this.config.channels || 1;
+    const bitsPerSample = 16;
+    
+    const header = Buffer.alloc(44);
+    header.write('RIFF', 0);
+    header.writeUInt32LE(36 + audioData.length, 4);
+    header.write('WAVE', 8);
+    header.write('fmt ', 12);
+    header.writeUInt32LE(16, 16);
+    header.writeUInt16LE(1, 20);
+    header.writeUInt16LE(channels, 22);
+    header.writeUInt32LE(sampleRate, 24);
+    header.writeUInt32LE(sampleRate * channels * bitsPerSample / 8, 28);
+    header.writeUInt16LE(channels * bitsPerSample / 8, 32);
+    header.writeUInt16LE(bitsPerSample, 34);
+    header.write('data', 36);
+    header.writeUInt32LE(audioData.length, 40);
+
+    const wavData = Buffer.concat([header, audioData]);
+    require('fs').writeFileSync(filePath, wavData);
   }
 
   async transcribeFile(filePath: string): Promise<any> {

@@ -44,6 +44,12 @@ export class AudioProcessor extends EventEmitter {
    * 音声データを処理に追加
    */
   addAudioData(data: Buffer): void {
+    // データがBufferでない場合はエラーとして処理
+    if (!Buffer.isBuffer(data)) {
+      console.error('AudioProcessor.addAudioData: データがBufferではありません', typeof data, data);
+      return;
+    }
+
     this.audioBuffer.addAudioData(data);
   }
 
@@ -58,6 +64,8 @@ export class AudioProcessor extends EventEmitter {
     this.isProcessing = true;
 
     try {
+      console.log(`音声チャンク処理: ${chunk.data.length}バイト, 時刻: ${chunk.timestamp}`);
+      
       // 音声品質分析
       if (this.options.enableQualityAnalysis) {
         const quality = this.audioBuffer.analyzeAudioQuality(chunk.data);
@@ -65,6 +73,8 @@ export class AudioProcessor extends EventEmitter {
           ...quality,
           timestamp: chunk.timestamp,
         };
+
+        console.log(`音声品質メトリクス: レベル=${metrics.level.toFixed(2)}, ピーク=${metrics.peak.toFixed(2)}`);
 
         this.qualityMetrics.push(metrics);
 

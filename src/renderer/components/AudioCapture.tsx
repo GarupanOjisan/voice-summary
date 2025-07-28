@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranscriptionStore } from '../stores/transcriptionStore';
 
 interface AudioDevice {
   id: string;
@@ -8,7 +9,7 @@ interface AudioDevice {
 }
 
 interface AudioCaptureProps {
-  onAudioData?: (data: Buffer) => void;
+  // プロパティは必要に応じて追加
 }
 
 export const AudioCapture: React.FC<AudioCaptureProps> = () => {
@@ -17,6 +18,9 @@ export const AudioCapture: React.FC<AudioCaptureProps> = () => {
   const [isCapturing, setIsCapturing] = useState(false);
   const [audioLevel, setAudioLevel] = useState(0);
   const [error, setError] = useState<string>('');
+  
+  // transcriptionStoreから状態管理機能を取得
+  const { setSTTActive } = useTranscriptionStore();
 
   useEffect(() => {
     loadAudioDevices();
@@ -36,35 +40,41 @@ export const AudioCapture: React.FC<AudioCaptureProps> = () => {
   };
 
   const startCapture = async () => {
-    if (!selectedDevice) {
-      setError('音声デバイスを選択してください');
-      return;
-    }
-
     try {
       setError('');
-      const result = await window.electronAPI.startAudioCapture(selectedDevice);
+      
+      // 内蔵マイクキャプチャを使用（混合音声キャプチャの代わりに）
+      const result = await window.electronAPI.startMicrophoneCapture();
 
       if (result.success) {
         setIsCapturing(true);
-        console.log('音声キャプチャを開始しました');
+        console.log('内蔵マイク音声キャプチャを開始しました');
+        
+        // STTストリーミング状態を手動でtrueに設定（デバッグ用）
+        console.log('🔴 STTストリーミング状態を手動でtrueに設定します');
+        setSTTActive(true);
       } else {
+        console.error('音声キャプチャ開始失敗:', result.error);
         setError(result.error || '音声キャプチャの開始に失敗しました');
       }
     } catch (err) {
-      setError('音声キャプチャの開始に失敗しました');
       console.error('音声キャプチャ開始エラー:', err);
+      setError('音声キャプチャの開始に失敗しました');
     }
   };
 
   const stopCapture = async () => {
     try {
+      setError('');
       const result = await window.electronAPI.stopAudioCapture();
 
       if (result.success) {
         setIsCapturing(false);
-        setAudioLevel(0);
         console.log('音声キャプチャを停止しました');
+        
+        // STTストリーミング状態を手動でfalseに設定
+        console.log('🔴 STTストリーミング状態を手動でfalseに設定します');
+        setSTTActive(false);
       } else {
         setError(result.error || '音声キャプチャの停止に失敗しました');
       }
@@ -130,16 +140,15 @@ export const AudioCapture: React.FC<AudioCaptureProps> = () => {
           </div>
         </div>
 
-        {/* 制御ボタン */}
-        <div className="flex space-x-4">
+        {/* ボタン群 */}
+        <div className="flex space-x-2">
           <button
             onClick={startCapture}
-            disabled={isCapturing || !selectedDevice}
+            disabled={isCapturing}
             className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
           >
-            {isCapturing ? 'キャプチャ中...' : 'キャプチャ開始'}
+            キャプチャ開始
           </button>
-
           <button
             onClick={stopCapture}
             disabled={!isCapturing}
