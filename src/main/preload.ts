@@ -96,6 +96,18 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onSummaryUpdate: (callback: (data: any) => void) => {
     ipcRenderer.on('summary-update', (_, data) => callback(data));
   },
+  onTranscriptSegmentAdded: (callback: (data: any) => void) => {
+    ipcRenderer.on('transcript-segment-added', (_, data) => callback(data));
+  },
+  onTranscriptBatchProcessed: (callback: (data: any) => void) => {
+    ipcRenderer.on('transcript-batch-processed', (_, data) => callback(data));
+  },
+  onTranscriptSessionStarted: (callback: (data: any) => void) => {
+    ipcRenderer.on('transcript-session-started', (_, data) => callback(data));
+  },
+  onTranscriptSessionStopped: (callback: (data: any) => void) => {
+    ipcRenderer.on('transcript-session-stopped', (_, data) => callback(data));
+  },
 });
 
 // TypeScript型定義
@@ -181,6 +193,10 @@ declare global {
       onAudioData: (callback: (data: any) => void) => void;
       onTranscriptionUpdate: (callback: (data: any) => void) => void;
       onSummaryUpdate: (callback: (data: any) => void) => void;
+      onTranscriptSegmentAdded: (callback: (data: any) => void) => void;
+      onTranscriptBatchProcessed: (callback: (data: any) => void) => void;
+      onTranscriptSessionStarted: (callback: (data: any) => void) => void;
+      onTranscriptSessionStopped: (callback: (data: any) => void) => void;
     };
   }
 }

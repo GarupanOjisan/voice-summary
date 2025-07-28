@@ -5,6 +5,7 @@ import VirtualAudioDeviceSetup from './components/VirtualAudioDeviceSetup';
 import WhisperSetup from './components/WhisperSetup';
 import STTProviderSetup from './components/STTProviderSetup';
 import TranscriptAggregator from './components/TranscriptAggregator';
+import LiveTranscriptDisplay from './components/LiveTranscriptDisplay';
 
 const App: React.FC = () => {
   return (
@@ -33,11 +34,14 @@ const App: React.FC = () => {
           <TranscriptAggregator />
         </div>
 
-        <div className="mt-6 bg-white rounded-lg shadow-md p-6">
-          <h2 className="text-xl font-semibold mb-4">文字起こし</h2>
-          <p className="text-gray-600">
-            音声キャプチャを開始すると、ここに文字起こしが表示されます...
-          </p>
+        <div className="mt-6">
+          <LiveTranscriptDisplay 
+            autoScroll={true}
+            showTimestamps={true}
+            showConfidence={true}
+            maxHeight="600px"
+            refreshInterval={1000}
+          />
         </div>
       </div>
     </div>

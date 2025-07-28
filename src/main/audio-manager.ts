@@ -77,7 +77,37 @@ export class AudioManager {
     };
 
     this.sttService = new STTService(sttServiceConfig);
+    
+    // STTマネージャーのイベントリスナーを設定
+    this.setupSttManagerEventListeners();
+    
     this.setupIpcHandlers();
+  }
+
+  /**
+   * STTマネージャーのイベントリスナーを設定
+   */
+  private setupSttManagerEventListeners(): void {
+    // トランスクリプト集約イベントをレンダラープロセスに転送
+    this.sttManager.on('transcriptSegmentAdded', (segment) => {
+      // メインプロセスからレンダラープロセスへの通信
+      console.log('トランスクリプトセグメント追加:', segment.text);
+    });
+
+    this.sttManager.on('transcriptBatchProcessed', (transcript) => {
+      // メインプロセスからレンダラープロセスへの通信
+      console.log('トランスクリプトバッチ処理完了:', transcript.segments.length, 'セグメント');
+    });
+
+    this.sttManager.on('transcriptSessionStarted', (data) => {
+      // メインプロセスからレンダラープロセスへの通信
+      console.log('トランスクリプトセッション開始:', data.sessionId);
+    });
+
+    this.sttManager.on('transcriptSessionStopped', (data) => {
+      // メインプロセスからレンダラープロセスへの通信
+      console.log('トランスクリプトセッション停止:', data.sessionId);
+    });
   }
 
   /**
