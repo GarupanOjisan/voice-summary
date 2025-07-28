@@ -6,6 +6,7 @@ import WhisperSetup from './components/WhisperSetup';
 import STTProviderSetup from './components/STTProviderSetup';
 import TranscriptAggregator from './components/TranscriptAggregator';
 import LiveTranscriptDisplay from './components/LiveTranscriptDisplay';
+import SummaryDisplay from './components/SummaryDisplay';
 
 const App: React.FC = () => {
   return (
@@ -34,15 +35,25 @@ const App: React.FC = () => {
           <TranscriptAggregator />
         </div>
 
-        <div className="mt-6">
-          <LiveTranscriptDisplay 
-            autoScroll={true}
-            showTimestamps={true}
-            showConfidence={true}
-            maxHeight="600px"
-            refreshInterval={1000}
-          />
-        </div>
+                  <div className="mt-6">
+            <LiveTranscriptDisplay
+              autoScroll={true}
+              showTimestamps={true}
+              showConfidence={true}
+              maxHeight="600px"
+              refreshInterval={1000}
+            />
+          </div>
+          
+          <div className="mt-6">
+            <SummaryDisplay
+              autoRefresh={true}
+              refreshInterval={5000}
+              showConfidence={true}
+              showUsage={true}
+              maxHeight="600px"
+            />
+          </div>
       </div>
     </div>
   );
