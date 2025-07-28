@@ -86,6 +86,21 @@ contextBridge.exposeInMainWorld('electronAPI', {
   saveSettings: (settings: any) =>
     ipcRenderer.invoke('save-settings', settings),
 
+  // LLM設定管理
+  getLLMSettings: () => ipcRenderer.invoke('llm-settings:get-settings'),
+  updateLLMSettings: (settings: any) => ipcRenderer.invoke('llm-settings:update-settings', settings),
+  setDefaultLLMProvider: (provider: string) => ipcRenderer.invoke('llm-settings:set-default-provider', provider),
+  getLLMApiKeys: () => ipcRenderer.invoke('llm-settings:get-api-keys'),
+  setLLMApiKey: (provider: string, key: string) => ipcRenderer.invoke('llm-settings:set-api-key', provider, key),
+  removeLLMApiKey: (provider: string) => ipcRenderer.invoke('llm-settings:remove-api-key', provider),
+  getLLMLocalModels: () => ipcRenderer.invoke('llm-settings:get-local-models'),
+  addLLMLocalModel: (modelInfo: any) => ipcRenderer.invoke('llm-settings:add-local-model', modelInfo),
+  removeLLMLocalModel: (id: string) => ipcRenderer.invoke('llm-settings:remove-local-model', id),
+  downloadLLMModel: (id: string) => ipcRenderer.invoke('llm-settings:download-model', id),
+  getLLMCostHistory: (days: number) => ipcRenderer.invoke('llm-settings:get-cost-history', days),
+  getLLMCostLimits: () => ipcRenderer.invoke('llm-settings:get-cost-limits'),
+  setLLMCostLimits: (limits: any) => ipcRenderer.invoke('llm-settings:set-cost-limits', limits),
+
   // イベントリスナー
   onAudioData: (callback: (data: any) => void) => {
     ipcRenderer.on('audio-data', (_, data) => callback(data));

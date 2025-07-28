@@ -1,6 +1,7 @@
 import { app, BrowserWindow, Menu } from 'electron';
 import * as path from 'path';
 import { AudioManager } from './audio-manager';
+import { initializeLLMSettingsHandlers } from './llm-settings-handlers';
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -74,6 +75,9 @@ app.whenReady().then(() => {
 
   // AudioManagerを初期化
   new AudioManager();
+
+  // LLM設定ハンドラーを初期化
+  initializeLLMSettingsHandlers();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {

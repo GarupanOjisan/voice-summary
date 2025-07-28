@@ -7,6 +7,7 @@ import STTProviderSetup from './components/STTProviderSetup';
 import TranscriptAggregator from './components/TranscriptAggregator';
 import LiveTranscriptDisplay from './components/LiveTranscriptDisplay';
 import SummaryDisplay from './components/SummaryDisplay';
+import LLMSettingsUI from './components/LLMSettingsUI';
 
 const App: React.FC = () => {
   return (
@@ -53,6 +54,10 @@ const App: React.FC = () => {
               showUsage={true}
               maxHeight="600px"
             />
+          </div>
+          
+          <div className="mt-6">
+            <LLMSettingsUI />
           </div>
       </div>
     </div>
