@@ -35,8 +35,10 @@ declare global {
   interface Window {
     electronAPI: {
       getAudioDevices: () => Promise<any[]>;
-      startAudioCapture: (deviceId: string) => Promise<void>;
-      stopAudioCapture: () => Promise<void>;
+      startAudioCapture: (
+        deviceId: string
+      ) => Promise<{ success: boolean; error?: string }>;
+      stopAudioCapture: () => Promise<{ success: boolean; error?: string }>;
       saveFile: (data: any, filename: string) => Promise<void>;
       openFile: () => Promise<any>;
       getSettings: () => Promise<any>;
