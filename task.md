@@ -87,10 +87,10 @@
 
 ### 4.1 LLMプロバイダー統合
 
-- [ ] OpenAI GPT-4o API統合
-- [ ] Google Gemini 1.5 Pro API統合
-- [ ] Local Llama 3 70B (gguf) 統合
-- [ ] LLMプロバイダー抽象クラス設計
+- [x] OpenAI GPT-4o API統合
+- [x] Google Gemini 1.5 Pro API統合
+- [x] Local Llama 3 70B (gguf) 統合
+- [x] LLMプロバイダー抽象クラス設計
 
 ### 4.2 要約・分析機能
 

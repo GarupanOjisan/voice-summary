@@ -63,9 +63,11 @@
   },
   "dependencies": {
     "@google-cloud/speech": "^7.2.0",
+    "@google/generative-ai": "^0.24.1",
     "@types/ws": "^8.18.1",
     "axios": "^1.11.0",
     "node-whisper": "^2024.11.13",
+    "openai": "^5.10.2",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "ws": "^8.18.3"
