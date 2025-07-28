@@ -1,6 +1,7 @@
 import React from 'react';
 import { AudioCapture } from './components/AudioCapture';
 import { AudioQualityMonitor } from './components/AudioQualityMonitor';
+import VirtualAudioDeviceSetup from './components/VirtualAudioDeviceSetup';
 
 const App: React.FC = () => {
   return (
@@ -11,6 +12,10 @@ const App: React.FC = () => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <AudioCapture />
           <AudioQualityMonitor />
+        </div>
+
+        <div className="mt-6">
+          <VirtualAudioDeviceSetup />
         </div>
 
         <div className="mt-6 bg-white rounded-lg shadow-md p-6">

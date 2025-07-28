@@ -124,6 +124,75 @@ export class AudioCapture extends EventEmitter {
   }
 
   /**
+   * 仮想オーディオデバイスからの音声キャプチャを開始
+   */
+  async startVirtualAudioCapture(deviceName: string): Promise<void> {
+    if (this.isCapturing) {
+      throw new Error('音声キャプチャは既に開始されています');
+    }
+
+    try {
+      // 仮想オーディオデバイス（BlackHole）からのキャプチャコマンド
+      const command = `ffmpeg -f avfoundation -i "${deviceName}" -ar ${this.options.sampleRate} -ac ${this.options.channels} -f s16le -`;
+
+      this.captureProcess = exec(command, (error, stdout) => {
+        if (error) {
+          this.emit('error', error);
+          return;
+        }
+
+        // 音声データを処理
+        this.processAudioData(stdout);
+      });
+
+      this.isCapturing = true;
+      this.emit('started');
+
+      console.log(
+        `仮想オーディオデバイス ${deviceName} からの音声キャプチャを開始しました`
+      );
+    } catch (error) {
+      console.error('仮想オーディオデバイスキャプチャ開始エラー:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * システム音声とマイク音声の混合キャプチャを開始
+   */
+  async startMixedAudioCapture(
+    systemDevice: string,
+    micDevice: string
+  ): Promise<void> {
+    if (this.isCapturing) {
+      throw new Error('音声キャプチャは既に開始されています');
+    }
+
+    try {
+      // システム音声とマイク音声を混合するFFmpegコマンド
+      const command = `ffmpeg -f avfoundation -i "${systemDevice}" -f avfoundation -i "${micDevice}" -filter_complex "[0:a][1:a]amix=inputs=2:duration=longest" -ar ${this.options.sampleRate} -ac ${this.options.channels} -f s16le -`;
+
+      this.captureProcess = exec(command, (error, stdout) => {
+        if (error) {
+          this.emit('error', error);
+          return;
+        }
+
+        // 音声データを処理
+        this.processAudioData(stdout);
+      });
+
+      this.isCapturing = true;
+      this.emit('started');
+
+      console.log('システム音声とマイク音声の混合キャプチャを開始しました');
+    } catch (error) {
+      console.error('混合音声キャプチャ開始エラー:', error);
+      throw error;
+    }
+  }
+
+  /**
    * キャプチャコマンドを構築
    */
   private buildCaptureCommand(): string {

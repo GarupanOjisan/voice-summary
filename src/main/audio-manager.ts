@@ -5,13 +5,16 @@ import {
   AudioCaptureOptions,
 } from './audio-capture';
 import { AudioProcessor, AudioProcessorOptions } from './audio-processor';
+import { VirtualAudioDeviceManager } from './virtual-audio-device';
 
 export class AudioManager {
   private audioCapture: AudioCapture | null = null;
   private audioProcessor: AudioProcessor | null = null;
+  private virtualAudioDeviceManager: VirtualAudioDeviceManager;
   private devices: AudioDevice[] = [];
 
   constructor() {
+    this.virtualAudioDeviceManager = new VirtualAudioDeviceManager();
     this.setupIpcHandlers();
   }
 
@@ -77,6 +80,69 @@ export class AudioManager {
           return { success: true };
         }
         return { success: false, error: 'AudioProcessor not initialized' };
+      }
+    );
+
+    // 仮想オーディオデバイス設定取得
+    ipcMain.handle('get-virtual-audio-device-config', async () => {
+      try {
+        return await this.virtualAudioDeviceManager.getVirtualDeviceConfiguration();
+      } catch (error) {
+        console.error('仮想オーディオデバイス設定取得エラー:', error);
+        return { isInstalled: false, devices: [] };
+      }
+    });
+
+    // 仮想オーディオデバイス作成
+    ipcMain.handle('create-virtual-audio-device', async () => {
+      try {
+        return await this.virtualAudioDeviceManager.createVirtualDevice();
+      } catch (error) {
+        console.error('仮想オーディオデバイス作成エラー:', error);
+        return { success: false, error: (error as Error).message };
+      }
+    });
+
+    // 音声ルーティング設定取得
+    ipcMain.handle('get-audio-routing-config', () => {
+      return this.virtualAudioDeviceManager.getAudioMixingConfiguration();
+    });
+
+    // 音声ルーティング設定更新
+    ipcMain.handle('update-audio-routing', async (event, config) => {
+      try {
+        return await this.virtualAudioDeviceManager.updateAudioRouting(config);
+      } catch (error) {
+        console.error('音声ルーティング設定更新エラー:', error);
+        return { success: false, error: (error as Error).message };
+      }
+    });
+
+    // 仮想オーディオデバイスからの音声キャプチャ開始
+    ipcMain.handle(
+      'start-virtual-audio-capture',
+      async (event, deviceName: string) => {
+        try {
+          await this.startVirtualCapture(deviceName);
+          return { success: true };
+        } catch (error) {
+          console.error('仮想オーディオデバイスキャプチャ開始エラー:', error);
+          return { success: false, error: (error as Error).message };
+        }
+      }
+    );
+
+    // 混合音声キャプチャ開始
+    ipcMain.handle(
+      'start-mixed-audio-capture',
+      async (event, systemDevice: string, micDevice: string) => {
+        try {
+          await this.startMixedCapture(systemDevice, micDevice);
+          return { success: true };
+        } catch (error) {
+          console.error('混合音声キャプチャ開始エラー:', error);
+          return { success: false, error: (error as Error).message };
+        }
       }
     );
   }
@@ -228,5 +294,144 @@ export class AudioManager {
    */
   isCapturing(): boolean {
     return this.audioCapture ? this.audioCapture.isCapturingAudio() : false;
+  }
+
+  /**
+   * 仮想オーディオデバイスからの音声キャプチャを開始
+   */
+  async startVirtualCapture(deviceName: string): Promise<void> {
+    if (this.audioCapture && this.audioCapture.isCapturingAudio()) {
+      await this.stopCapture();
+    }
+
+    const options: AudioCaptureOptions = {
+      deviceId: deviceName,
+      sampleRate: 16000,
+      channels: 1,
+      bufferSize: 1024,
+    };
+
+    this.audioCapture = new AudioCapture(options);
+
+    // AudioProcessorを初期化
+    const processorOptions: AudioProcessorOptions = {
+      bufferOptions: {
+        sampleRate: 16000,
+        channels: 1,
+        bitDepth: 16,
+        chunkDuration: 0.25, // 250ms
+        maxBufferSize: 1024 * 1024, // 1MB
+      },
+      enableVUMeter: true,
+      enableQualityAnalysis: true,
+      silenceDetection: true,
+    };
+
+    this.audioProcessor = new AudioProcessor(processorOptions);
+
+    // イベントリスナーを設定
+    this.audioCapture.on('audioData', (data: Buffer) => {
+      if (this.audioProcessor) {
+        this.audioProcessor.addAudioData(data);
+      }
+    });
+
+    this.audioCapture.on('error', (error: Error) => {
+      console.error('仮想オーディオデバイスキャプチャエラー:', error);
+    });
+
+    // AudioProcessorのイベントリスナーを設定
+    if (this.audioProcessor) {
+      this.audioProcessor.on('processedChunk', (chunk) => {
+        this.sendProcessedChunkToRenderer(chunk);
+      });
+
+      this.audioProcessor.on('vuMeter', (data) => {
+        this.sendVUMeterDataToRenderer(data);
+      });
+
+      this.audioProcessor.on('qualityMetrics', (metrics) => {
+        this.sendQualityMetricsToRenderer(metrics);
+      });
+
+      this.audioProcessor.on('silenceDetected', (data) => {
+        this.sendSilenceDetectionToRenderer(data);
+      });
+
+      this.audioProcessor.start();
+    }
+
+    await this.audioCapture.startVirtualAudioCapture(deviceName);
+  }
+
+  /**
+   * システム音声とマイク音声の混合キャプチャを開始
+   */
+  async startMixedCapture(
+    systemDevice: string,
+    micDevice: string
+  ): Promise<void> {
+    if (this.audioCapture && this.audioCapture.isCapturingAudio()) {
+      await this.stopCapture();
+    }
+
+    const options: AudioCaptureOptions = {
+      deviceId: `${systemDevice}+${micDevice}`,
+      sampleRate: 16000,
+      channels: 1,
+      bufferSize: 1024,
+    };
+
+    this.audioCapture = new AudioCapture(options);
+
+    // AudioProcessorを初期化
+    const processorOptions: AudioProcessorOptions = {
+      bufferOptions: {
+        sampleRate: 16000,
+        channels: 1,
+        bitDepth: 16,
+        chunkDuration: 0.25, // 250ms
+        maxBufferSize: 1024 * 1024, // 1MB
+      },
+      enableVUMeter: true,
+      enableQualityAnalysis: true,
+      silenceDetection: true,
+    };
+
+    this.audioProcessor = new AudioProcessor(processorOptions);
+
+    // イベントリスナーを設定
+    this.audioCapture.on('audioData', (data: Buffer) => {
+      if (this.audioProcessor) {
+        this.audioProcessor.addAudioData(data);
+      }
+    });
+
+    this.audioCapture.on('error', (error: Error) => {
+      console.error('混合音声キャプチャエラー:', error);
+    });
+
+    // AudioProcessorのイベントリスナーを設定
+    if (this.audioProcessor) {
+      this.audioProcessor.on('processedChunk', (chunk) => {
+        this.sendProcessedChunkToRenderer(chunk);
+      });
+
+      this.audioProcessor.on('vuMeter', (data) => {
+        this.sendVUMeterDataToRenderer(data);
+      });
+
+      this.audioProcessor.on('qualityMetrics', (metrics) => {
+        this.sendQualityMetricsToRenderer(metrics);
+      });
+
+      this.audioProcessor.on('silenceDetected', (data) => {
+        this.sendSilenceDetectionToRenderer(data);
+      });
+
+      this.audioProcessor.start();
+    }
+
+    await this.audioCapture.startMixedAudioCapture(systemDevice, micDevice);
   }
 }

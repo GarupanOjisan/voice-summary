@@ -12,6 +12,19 @@ contextBridge.exposeInMainWorld('electronAPI', {
   updateAudioProcessorOptions: (options: any) =>
     ipcRenderer.invoke('update-audio-processor-options', options),
 
+  // 仮想オーディオデバイス関連
+  getVirtualAudioDeviceConfig: () =>
+    ipcRenderer.invoke('get-virtual-audio-device-config'),
+  createVirtualAudioDevice: () =>
+    ipcRenderer.invoke('create-virtual-audio-device'),
+  getAudioRoutingConfig: () => ipcRenderer.invoke('get-audio-routing-config'),
+  updateAudioRouting: (config: any) =>
+    ipcRenderer.invoke('update-audio-routing', config),
+  startVirtualAudioCapture: (deviceName: string) =>
+    ipcRenderer.invoke('start-virtual-audio-capture', deviceName),
+  startMixedAudioCapture: (systemDevice: string, micDevice: string) =>
+    ipcRenderer.invoke('start-mixed-audio-capture', systemDevice, micDevice),
+
   // ファイル関連
   saveFile: (data: any, filename: string) =>
     ipcRenderer.invoke('save-file', data, filename),
@@ -47,6 +60,22 @@ declare global {
       getBufferInfo: () => Promise<any>;
       updateAudioProcessorOptions: (
         options: any
+      ) => Promise<{ success: boolean; error?: string }>;
+      getVirtualAudioDeviceConfig: () => Promise<any>;
+      createVirtualAudioDevice: () => Promise<{
+        success: boolean;
+        message: string;
+      }>;
+      getAudioRoutingConfig: () => Promise<any>;
+      updateAudioRouting: (
+        config: any
+      ) => Promise<{ success: boolean; error?: string }>;
+      startVirtualAudioCapture: (
+        deviceName: string
+      ) => Promise<{ success: boolean; error?: string }>;
+      startMixedAudioCapture: (
+        systemDevice: string,
+        micDevice: string
       ) => Promise<{ success: boolean; error?: string }>;
       saveFile: (data: any, filename: string) => Promise<void>;
       openFile: () => Promise<any>;
