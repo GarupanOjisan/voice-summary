@@ -62,9 +62,13 @@
     "webpack-dev-server": "^4.15.0"
   },
   "dependencies": {
+    "@google-cloud/speech": "^7.2.0",
+    "@types/ws": "^8.18.1",
+    "axios": "^1.11.0",
     "node-whisper": "^2024.11.13",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "react-dom": "^18.2.0",
+    "ws": "^8.18.3"
   },
   "build": {
     "appId": "com.garupanojisan.voice-summary",

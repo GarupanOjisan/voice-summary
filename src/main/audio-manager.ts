@@ -11,6 +11,8 @@ import {
   StreamingTranscription,
   StreamingTranscriptionOptions,
 } from './streaming-transcription';
+import { STTManager, STTManagerConfig } from './stt-manager';
+import { STTProviderType } from './stt-provider';
 
 export class AudioManager {
   private audioCapture: AudioCapture | null = null;
@@ -18,11 +20,30 @@ export class AudioManager {
   private virtualAudioDeviceManager: VirtualAudioDeviceManager;
   private whisperManager: WhisperManager;
   private streamingTranscription: StreamingTranscription | null = null;
+  private sttManager: STTManager;
   private devices: AudioDevice[] = [];
 
   constructor() {
     this.virtualAudioDeviceManager = new VirtualAudioDeviceManager();
     this.whisperManager = new WhisperManager();
+    
+    // STTマネージャーを初期化
+    const sttConfig: STTManagerConfig = {
+      defaultProvider: STTProviderType.WHISPER_LOCAL,
+      providers: {
+        [STTProviderType.WHISPER_LOCAL]: {
+          apiKey: '', // Whisper LocalはAPIキー不要
+          language: 'ja',
+          sampleRate: 16000,
+          channels: 1,
+        },
+        // 他のプロバイダーの設定は後で追加
+      },
+      autoSwitch: true,
+      fallbackProvider: STTProviderType.WHISPER_LOCAL,
+    };
+    
+    this.sttManager = new STTManager(sttConfig);
     this.setupIpcHandlers();
   }
 
@@ -228,6 +249,82 @@ export class AudioManager {
         };
       }
       return null;
+    });
+
+    // STTマネージャー関連のIPCハンドラー
+    // サポートされているプロバイダー取得
+    ipcMain.handle('get-supported-stt-providers', () => {
+      return this.sttManager.getSupportedProviders();
+    });
+
+    // プロバイダー情報取得
+    ipcMain.handle('get-stt-provider-info', (event, providerType: STTProviderType) => {
+      return this.sttManager.getProviderInfo(providerType);
+    });
+
+    // プロバイダー状態取得
+    ipcMain.handle('get-stt-provider-status', () => {
+      return this.sttManager.getProviderStatus();
+    });
+
+    // プロバイダー初期化
+    ipcMain.handle('initialize-stt-provider', async (event, providerType: STTProviderType) => {
+      try {
+        const success = await this.sttManager.initializeProvider(providerType);
+        return { success, error: success ? undefined : 'プロバイダーの初期化に失敗しました' };
+      } catch (error) {
+        console.error('STTプロバイダー初期化エラー:', error);
+        return { success: false, error: (error as Error).message };
+      }
+    });
+
+    // プロバイダー切り替え
+    ipcMain.handle('switch-stt-provider', async (event, providerType: STTProviderType) => {
+      try {
+        const success = await this.sttManager.switchToProvider(providerType);
+        return { success, error: success ? undefined : 'プロバイダーの切り替えに失敗しました' };
+      } catch (error) {
+        console.error('STTプロバイダー切り替えエラー:', error);
+        return { success: false, error: (error as Error).message };
+      }
+    });
+
+    // STTストリーミング開始
+    ipcMain.handle('start-stt-streaming', async (event, options: any) => {
+      try {
+        await this.sttManager.startStreaming(options);
+        return { success: true };
+      } catch (error) {
+        console.error('STTストリーミング開始エラー:', error);
+        return { success: false, error: (error as Error).message };
+      }
+    });
+
+    // STTストリーミング停止
+    ipcMain.handle('stop-stt-streaming', async () => {
+      try {
+        await this.sttManager.stopStreaming();
+        return { success: true };
+      } catch (error) {
+        console.error('STTストリーミング停止エラー:', error);
+        return { success: false, error: (error as Error).message };
+      }
+    });
+
+    // 現在のプロバイダー取得
+    ipcMain.handle('get-current-stt-provider', () => {
+      return this.sttManager.getCurrentProviderType();
+    });
+
+    // STT設定更新
+    ipcMain.handle('update-stt-config', (event, config: Partial<STTManagerConfig>) => {
+      try {
+        this.sttManager.updateConfig(config);
+        return { success: true };
+      } catch (error) {
+        console.error('STT設定更新エラー:', error);
+        return { success: false, error: (error as Error).message };
+      }
     });
   }
 

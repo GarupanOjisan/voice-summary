@@ -41,6 +41,17 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getStreamingTranscriptionInfo: () =>
     ipcRenderer.invoke('get-streaming-transcription-info'),
 
+  // STTマネージャー関連
+  getSupportedSttProviders: () => ipcRenderer.invoke('get-supported-stt-providers'),
+  getSttProviderInfo: (providerType: string) => ipcRenderer.invoke('get-stt-provider-info', providerType),
+  getSttProviderStatus: () => ipcRenderer.invoke('get-stt-provider-status'),
+  initializeSttProvider: (providerType: string) => ipcRenderer.invoke('initialize-stt-provider', providerType),
+  switchSttProvider: (providerType: string) => ipcRenderer.invoke('switch-stt-provider', providerType),
+  startSttStreaming: (options: any) => ipcRenderer.invoke('start-stt-streaming', options),
+  stopSttStreaming: () => ipcRenderer.invoke('stop-stt-streaming'),
+  getCurrentSttProvider: () => ipcRenderer.invoke('get-current-stt-provider'),
+  updateSttConfig: (config: any) => ipcRenderer.invoke('update-stt-config', config),
+
   // ファイル関連
   saveFile: (data: any, filename: string) =>
     ipcRenderer.invoke('save-file', data, filename),
@@ -110,6 +121,15 @@ declare global {
       }>;
       getWhisperSettings: () => Promise<any>;
       getStreamingTranscriptionInfo: () => Promise<any>;
+      getSupportedSttProviders: () => Promise<string[]>;
+      getSttProviderInfo: (providerType: string) => Promise<any>;
+      getSttProviderStatus: () => Promise<any[]>;
+      initializeSttProvider: (providerType: string) => Promise<{ success: boolean; error?: string }>;
+      switchSttProvider: (providerType: string) => Promise<{ success: boolean; error?: string }>;
+      startSttStreaming: (options: any) => Promise<{ success: boolean; error?: string }>;
+      stopSttStreaming: () => Promise<{ success: boolean; error?: string }>;
+      getCurrentSttProvider: () => Promise<string | null>;
+      updateSttConfig: (config: any) => Promise<{ success: boolean; error?: string }>;
       saveFile: (data: any, filename: string) => Promise<void>;
       openFile: () => Promise<any>;
       getSettings: () => Promise<any>;
