@@ -15,7 +15,7 @@ interface AudioCaptureProps {
 export const AudioCapture: React.FC<AudioCaptureProps> = () => {
   const [devices, setDevices] = useState<AudioDevice[]>([]);
   const [selectedDevice, setSelectedDevice] = useState<string>('');
-  const [isCapturing, setIsCapturing] = useState(false);
+
   const [audioLevel, setAudioLevel] = useState(0);
   const [error, setError] = useState<string>('');
   
@@ -39,69 +39,21 @@ export const AudioCapture: React.FC<AudioCaptureProps> = () => {
     }
   };
 
-  const startCapture = async () => {
-    try {
-      setError('');
-      
-      // 内蔵マイクキャプチャを使用（混合音声キャプチャの代わりに）
-      const result = await window.electronAPI.startMicrophoneCapture();
 
-      if (result.success) {
-        setIsCapturing(true);
-        console.log('内蔵マイク音声キャプチャを開始しました');
-        
-        // STTストリーミング状態を手動でtrueに設定（デバッグ用）
-        console.log('🔴 STTストリーミング状態を手動でtrueに設定します');
-        setSTTActive(true);
-      } else {
-        console.error('音声キャプチャ開始失敗:', result.error);
-        setError(result.error || '音声キャプチャの開始に失敗しました');
-      }
-    } catch (err) {
-      console.error('音声キャプチャ開始エラー:', err);
-      setError('音声キャプチャの開始に失敗しました');
-    }
-  };
-
-  const stopCapture = async () => {
-    try {
-      setError('');
-      const result = await window.electronAPI.stopAudioCapture();
-
-      if (result.success) {
-        setIsCapturing(false);
-        setAudioLevel(0); // 音声レベルを0にリセット
-        console.log('音声キャプチャを停止しました');
-        
-        // STTストリーミング状態を手動でfalseに設定
-        console.log('🔴 STTストリーミング状態を手動でfalseに設定します');
-        setSTTActive(false);
-      } else {
-        setError(result.error || '音声キャプチャの停止に失敗しました');
-      }
-    } catch (err) {
-      setError('音声キャプチャの停止に失敗しました');
-      console.error('音声キャプチャ停止エラー:', err);
-    }
-  };
 
   // 実際の音声レベルデータを取得
   useEffect(() => {
-    if (isCapturing) {
-      const interval = setInterval(async () => {
-        try {
-          const level = await window.electronAPI.getAudioLevel();
-          setAudioLevel(level);
-        } catch (error) {
-          console.error('音声レベル取得エラー:', error);
-          setAudioLevel(0);
-        }
-      }, 100);
-      return () => clearInterval(interval);
-    } else {
-      setAudioLevel(0);
-    }
-  }, [isCapturing]);
+    const interval = setInterval(async () => {
+      try {
+        const level = await window.electronAPI.getAudioLevel();
+        setAudioLevel(level);
+      } catch (error) {
+        console.error('音声レベル取得エラー:', error);
+        setAudioLevel(0);
+      }
+    }, 100);
+    return () => clearInterval(interval);
+  }, []);
 
   return (
     <div className="bg-white rounded-lg shadow-md p-6">
@@ -123,7 +75,6 @@ export const AudioCapture: React.FC<AudioCaptureProps> = () => {
             value={selectedDevice}
             onChange={(e) => setSelectedDevice(e.target.value)}
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            disabled={isCapturing}
           >
             {devices.map((device) => (
               <option key={device.id} value={device.id}>
@@ -149,28 +100,9 @@ export const AudioCapture: React.FC<AudioCaptureProps> = () => {
           </div>
         </div>
 
-        {/* ボタン群 */}
-        <div className="flex space-x-2">
-          <button
-            onClick={startCapture}
-            disabled={isCapturing}
-            className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
-          >
-            キャプチャ開始
-          </button>
-          <button
-            onClick={stopCapture}
-            disabled={!isCapturing}
-            className="flex-1 bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
-          >
-            キャプチャ停止
-          </button>
-        </div>
 
-        {/* 状態表示 */}
-        <div className="text-sm text-gray-600">
-          状態: {isCapturing ? 'キャプチャ中' : '停止中'}
-        </div>
+
+
       </div>
     </div>
   );

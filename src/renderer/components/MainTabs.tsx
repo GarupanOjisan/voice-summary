@@ -2,9 +2,6 @@ import React, { useState } from 'react';
 import LiveTranscriptDisplay from './LiveTranscriptDisplay';
 import SummaryPanelDisplay from './SummaryPanelDisplay';
 import TopicsDisplay from './TopicsDisplay';
-import HighlightsDisplay from './HighlightsDisplay';
-import TopicHighlightDisplay from './TopicHighlightDisplay';
-import ProgressIndicator from './ProgressIndicator';
 
 interface Tab {
   id: string;
@@ -37,38 +34,6 @@ const MainTabs: React.FC = () => {
       label: 'トピック',
       icon: '🏷️',
       component: <TopicsDisplay />,
-    },
-    {
-      id: 'highlights',
-      label: 'ハイライト',
-      icon: '⭐',
-      component: <HighlightsDisplay />,
-    },
-    {
-      id: 'topic-highlights',
-      label: 'トピック別',
-      icon: '🎯',
-      component: (
-        <TopicHighlightDisplay
-          maxHeight="calc(100vh - 200px)"
-          refreshInterval={2000}
-          enableAutoScroll={true}
-          showConfidence={true}
-          showTimestamps={true}
-        />
-      ),
-    },
-    {
-      id: 'progress',
-      label: '進行状況',
-      icon: '📈',
-      component: (
-        <ProgressIndicator
-          showDetails={true}
-          showTimeline={true}
-          compact={false}
-        />
-      ),
     },
   ];
 

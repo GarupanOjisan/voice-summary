@@ -42,13 +42,7 @@ interface LocalModelInfo {
   status: 'not_downloaded' | 'downloading' | 'downloaded' | 'error';
 }
 
-interface CostInfo {
-  provider: string;
-  date: string;
-  tokens: number;
-  cost: number;
-  requests: number;
-}
+
 
 interface LLMSettingsUIProps {
   onSettingsChange?: (settings: LLMSettings) => void;
@@ -70,7 +64,7 @@ const LLMSettingsUI: React.FC<LLMSettingsUIProps> = ({ onSettingsChange }) => {
   });
   const [apiKeys, setApiKeys] = useState<APIKeyInfo[]>([]);
   const [localModels, setLocalModels] = useState<LocalModelInfo[]>([]);
-  const [costHistory, setCostHistory] = useState<CostInfo[]>([]);
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -117,22 +111,7 @@ const LLMSettingsUI: React.FC<LLMSettingsUIProps> = ({ onSettingsChange }) => {
     },
   ];
 
-  const mockCostHistory: CostInfo[] = [
-    {
-      provider: 'openai',
-      date: '2024-01-15',
-      tokens: 15000,
-      cost: 0.45,
-      requests: 25,
-    },
-    {
-      provider: 'gemini',
-      date: '2024-01-15',
-      tokens: 12000,
-      cost: 0.18,
-      requests: 18,
-    },
-  ];
+
 
   useEffect(() => {
     loadSettings();
@@ -143,7 +122,6 @@ const LLMSettingsUI: React.FC<LLMSettingsUIProps> = ({ onSettingsChange }) => {
       // 実際の実装ではIPCを通じてメインプロセスからデータを取得
       setApiKeys(mockApiKeys);
       setLocalModels(mockLocalModels);
-      setCostHistory(mockCostHistory);
     } catch (err) {
       setError('設定の読み込みに失敗しました');
       console.error(err);
@@ -261,7 +239,6 @@ const LLMSettingsUI: React.FC<LLMSettingsUIProps> = ({ onSettingsChange }) => {
             { id: 'providers', label: 'プロバイダー' },
             { id: 'api-keys', label: 'APIキー' },
             { id: 'models', label: 'ローカルモデル' },
-            { id: 'costs', label: 'コスト管理' },
           ].map((tab) => (
             <button
               key={tab.id}
@@ -457,102 +434,7 @@ const LLMSettingsUI: React.FC<LLMSettingsUIProps> = ({ onSettingsChange }) => {
         </div>
       )}
 
-      {/* コスト管理 */}
-      {activeTab === 'costs' && (
-        <div className="space-y-6">
-          <div>
-            <h3 className="text-lg font-medium text-gray-900 mb-4">コスト管理</h3>
-            
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-              <div className="p-4 bg-blue-50 rounded-lg">
-                <div className="text-sm text-blue-600">今日のコスト</div>
-                <div className="text-2xl font-bold text-blue-900">
-                  ${costHistory.reduce((sum, cost) => sum + cost.cost, 0).toFixed(2)}
-                </div>
-              </div>
-              <div className="p-4 bg-green-50 rounded-lg">
-                <div className="text-sm text-green-600">今月のコスト</div>
-                <div className="text-2xl font-bold text-green-900">
-                  ${(costHistory.reduce((sum, cost) => sum + cost.cost, 0) * 30).toFixed(2)}
-                </div>
-              </div>
-              <div className="p-4 bg-orange-50 rounded-lg">
-                <div className="text-sm text-orange-600">総リクエスト数</div>
-                <div className="text-2xl font-bold text-orange-900">
-                  {costHistory.reduce((sum, cost) => sum + cost.requests, 0)}
-                </div>
-              </div>
-            </div>
 
-            <div className="space-y-4">
-              <div>
-                <h4 className="text-md font-medium text-gray-900 mb-2">コスト制限設定</h4>
-                <div className="space-y-2">
-                  <div className="flex items-center">
-                    <input
-                      type="checkbox"
-                      id="costLimitEnabled"
-                      checked={settings.costLimit.enabled}
-                      onChange={(e) => handleSettingsChange({
-                        costLimit: { ...settings.costLimit, enabled: e.target.checked }
-                      })}
-                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                    />
-                    <label htmlFor="costLimitEnabled" className="ml-2 block text-sm text-gray-900">
-                      コスト制限を有効にする
-                    </label>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm text-gray-700">1日の制限 ($)</label>
-                      <input
-                        type="number"
-                        value={settings.costLimit.daily}
-                        onChange={(e) => handleSettingsChange({
-                          costLimit: { ...settings.costLimit, daily: parseFloat(e.target.value) }
-                        })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
-                        step="0.01"
-                        min="0"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm text-gray-700">1ヶ月の制限 ($)</label>
-                      <input
-                        type="number"
-                        value={settings.costLimit.monthly}
-                        onChange={(e) => handleSettingsChange({
-                          costLimit: { ...settings.costLimit, monthly: parseFloat(e.target.value) }
-                        })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
-                        step="0.01"
-                        min="0"
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <h4 className="text-md font-medium text-gray-900 mb-2">コスト履歴</h4>
-                <div className="space-y-2">
-                  {costHistory.map((cost, index) => (
-                    <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
-                      <div className="text-sm">
-                        <span className="font-medium capitalize">{cost.provider}</span>
-                        <span className="text-gray-600 ml-2">{cost.date}</span>
-                      </div>
-                      <div className="text-sm text-gray-600">
-                        ${cost.cost.toFixed(2)} ({cost.requests}回)
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

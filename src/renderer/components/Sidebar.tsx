@@ -1,9 +1,5 @@
 import React, { useState } from 'react';
 import { AudioCapture } from './AudioCapture';
-import { AudioQualityMonitor } from './AudioQualityMonitor';
-import VirtualAudioDeviceSetup from './VirtualAudioDeviceSetup';
-import WhisperSetup from './WhisperSetup';
-import STTProviderSetup from './STTProviderSetup';
 import LLMSettingsUI from './LLMSettingsUI';
 
 interface SidebarProps {
@@ -16,7 +12,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
 
   const sections = [
     { id: 'audio', label: '音声設定', icon: '🎤' },
-    { id: 'stt', label: '音声認識', icon: '🎧' },
     { id: 'llm', label: 'LLM設定', icon: '🤖' },
   ];
 
@@ -26,15 +21,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
         return (
           <div className="space-y-4">
             <AudioCapture />
-            <AudioQualityMonitor />
-            <VirtualAudioDeviceSetup />
-          </div>
-        );
-      case 'stt':
-        return (
-          <div className="space-y-4">
-            <WhisperSetup />
-            <STTProviderSetup />
           </div>
         );
       case 'llm':

@@ -18,15 +18,7 @@ interface STTProviderStatus {
   lastError?: string;
 }
 
-interface STTErrorStats {
-  totalErrors: number;
-  errorsByType: { [key: string]: number };
-  errorsBySeverity: { [key: string]: number };
-  errorsByProvider: { [key: string]: number };
-  recentErrors: any[];
-  averageRecoveryTime: number;
-  lastError?: any;
-}
+
 
 const STTProviderSetup: React.FC = () => {
   const [supportedProviders, setSupportedProviders] = useState<string[]>([]);
@@ -36,8 +28,7 @@ const STTProviderSetup: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedProvider, setSelectedProvider] = useState<string>('whisper_local');
-  const [errorStats, setErrorStats] = useState<STTErrorStats | null>(null);
-  const [showErrorDetails, setShowErrorDetails] = useState<boolean>(false);
+
 
   useEffect(() => {
     loadSTTData();
@@ -46,17 +37,15 @@ const STTProviderSetup: React.FC = () => {
   const loadSTTData = async () => {
     try {
       setLoading(true);
-      const [providers, statuses, current, stats] = await Promise.all([
+      const [providers, statuses, current] = await Promise.all([
         window.electronAPI.getSupportedSttProviders(),
         window.electronAPI.getSttProviderStatus(),
-        window.electronAPI.getCurrentSttProvider(),
-        window.electronAPI.getSttErrorStats()
+        window.electronAPI.getCurrentSttProvider()
       ]);
 
       setSupportedProviders(providers);
       setProviderStatuses(statuses);
       setCurrentProvider(current);
-      setErrorStats(stats);
 
       // 各プロバイダーの情報を取得
       const infos: { [key: string]: STTProviderInfo } = {};
@@ -351,95 +340,7 @@ const STTProviderSetup: React.FC = () => {
         </div>
       </div>
 
-      {/* エラーハンドリング情報 */}
-      {errorStats && (
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-700">
-              エラーハンドリング情報
-            </h3>
-            <button
-              onClick={() => setShowErrorDetails(!showErrorDetails)}
-              className="text-blue-600 hover:text-blue-800 text-sm"
-            >
-              {showErrorDetails ? '詳細を隠す' : '詳細を表示'}
-            </button>
-          </div>
-          
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-            <div className="text-center">
-              <div className="text-2xl font-bold text-red-600">{errorStats.totalErrors}</div>
-              <div className="text-sm text-gray-600">総エラー数</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-blue-600">
-                {errorStats.averageRecoveryTime.toFixed(1)}ms
-              </div>
-              <div className="text-sm text-gray-600">平均復旧時間</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-yellow-600">
-                {Object.keys(errorStats.errorsByProvider).length}
-              </div>
-              <div className="text-sm text-gray-600">影響プロバイダー数</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-green-600">
-                {errorStats.lastError ? 'あり' : 'なし'}
-              </div>
-              <div className="text-sm text-gray-600">最新エラー</div>
-            </div>
-          </div>
 
-          {showErrorDetails && (
-            <div className="space-y-4">
-              {/* エラータイプ別統計 */}
-              <div>
-                <h4 className="text-md font-medium text-gray-700 mb-2">エラータイプ別統計</h4>
-                <div className="grid grid-cols-2 gap-2">
-                  {Object.entries(errorStats.errorsByType).map(([type, count]) => (
-                    <div key={type} className="flex justify-between items-center p-2 bg-gray-50 rounded">
-                      <span className="text-sm text-gray-600">{type}</span>
-                      <span className="text-sm font-medium text-red-600">{count}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* プロバイダー別エラー統計 */}
-              <div>
-                <h4 className="text-md font-medium text-gray-700 mb-2">プロバイダー別エラー統計</h4>
-                <div className="grid grid-cols-2 gap-2">
-                  {Object.entries(errorStats.errorsByProvider).map(([provider, count]) => (
-                    <div key={provider} className="flex justify-between items-center p-2 bg-gray-50 rounded">
-                      <span className="text-sm text-gray-600">{provider}</span>
-                      <span className="text-sm font-medium text-red-600">{count}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* 最近のエラー */}
-              {errorStats.recentErrors.length > 0 && (
-                <div>
-                  <h4 className="text-md font-medium text-gray-700 mb-2">最近のエラー</h4>
-                  <div className="space-y-2 max-h-40 overflow-y-auto">
-                    {errorStats.recentErrors.slice(0, 5).map((error, index) => (
-                      <div key={index} className="p-2 bg-red-50 border border-red-200 rounded text-sm">
-                        <div className="font-medium text-red-800">{error.type}</div>
-                        <div className="text-red-600">{error.message}</div>
-                        <div className="text-xs text-gray-500">
-                          {new Date(error.timestamp).toLocaleString()}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      )}
 
       {/* プロバイダー詳細設定 */}
       <div className="bg-white rounded-lg shadow p-6">

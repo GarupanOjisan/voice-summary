@@ -1,15 +1,18 @@
 import React, { useState } from 'react';
 import { useAudioStore } from '../stores';
+import { useTranscriptionStore } from '../stores/transcriptionStore';
 
 const Header: React.FC = () => {
   const [showDropdown, setShowDropdown] = useState(false);
   const { isRecording, startRecording, stopRecording } = useAudioStore();
+  const { setSTTActive } = useTranscriptionStore();
 
   const handleToggleRecording = async () => {
     if (isRecording) {
       try {
         await window.electronAPI.stopAudioCapture();
         stopRecording();
+        setSTTActive(false);
       } catch (error) {
         console.error('録音停止エラー:', error);
       }
@@ -19,6 +22,7 @@ const Header: React.FC = () => {
         const result = await window.electronAPI.startMicrophoneCapture();
         if (result.success) {
           startRecording();
+          setSTTActive(true);
           console.log('内蔵マイク録音を開始しました');
         } else {
           console.error('録音開始エラー:', result.error);

@@ -14,28 +14,13 @@ interface WhisperSettings {
   modelsDir: string;
 }
 
-interface StreamingTranscriptionInfo {
-  options: {
-    chunkDuration: number;
-    overlapDuration: number;
-    sampleRate: number;
-    channels: number;
-    bitDepth: number;
-  };
-  bufferInfo: {
-    bufferSize: number;
-    chunkCount: number;
-    isStreaming: boolean;
-  };
-  isActive: boolean;
-}
+
 
 const WhisperSetup: React.FC = () => {
   const [models, setModels] = useState<WhisperModel[]>([]);
   const [downloadedModels, setDownloadedModels] = useState<string[]>([]);
   const [settings, setSettings] = useState<WhisperSettings | null>(null);
-  const [streamingInfo, setStreamingInfo] =
-    useState<StreamingTranscriptionInfo | null>(null);
+
   const [_selectedModel, setSelectedModel] = useState<string>('base');
   const [loading, setLoading] = useState<boolean>(true);
   const [downloading, setDownloading] = useState<string | null>(null);
@@ -107,63 +92,7 @@ const WhisperSetup: React.FC = () => {
     }
   };
 
-  const handleStartStreaming = async () => {
-    try {
-      setError(null);
 
-      const options = {
-        chunkDuration: 2.0, // 2秒
-        overlapDuration: 0.5, // 0.5秒
-        sampleRate: 16000,
-        channels: 1,
-        bitDepth: 16,
-        whisperOptions: {
-          language: 'ja',
-          temperature: 0,
-          suppressBlank: true,
-        },
-      };
-
-      const result =
-        await window.electronAPI.startStreamingTranscription(options);
-
-      if (result.success) {
-        alert('ストリーミング音声認識を開始しました');
-        await loadStreamingInfo();
-      } else {
-        setError(`ストリーミング開始に失敗: ${result.error}`);
-      }
-    } catch (err) {
-      setError('ストリーミング開始中にエラーが発生しました');
-      console.error(err);
-    }
-  };
-
-  const handleStopStreaming = async () => {
-    try {
-      setError(null);
-      const result = await window.electronAPI.stopStreamingTranscription();
-
-      if (result.success) {
-        alert('ストリーミング音声認識を停止しました');
-        await loadStreamingInfo();
-      } else {
-        setError(`ストリーミング停止に失敗: ${result.error}`);
-      }
-    } catch (err) {
-      setError('ストリーミング停止中にエラーが発生しました');
-      console.error(err);
-    }
-  };
-
-  const loadStreamingInfo = async () => {
-    try {
-      const info = await window.electronAPI.getStreamingTranscriptionInfo();
-      setStreamingInfo(info);
-    } catch (err) {
-      console.error('ストリーミング情報の読み込みに失敗:', err);
-    }
-  };
 
   const isModelDownloaded = (modelName: string): boolean => {
     return downloadedModels.some((model) => model.includes(modelName));
@@ -188,7 +117,7 @@ const WhisperSetup: React.FC = () => {
   return (
     <div className="p-6 space-y-6">
       <h2 className="text-2xl font-bold text-gray-800 mb-4">
-        Whisper音声認識設定
+        音声認識設定
       </h2>
 
       {error && (
@@ -308,57 +237,7 @@ const WhisperSetup: React.FC = () => {
         </div>
       </div>
 
-      {/* ストリーミング音声認識制御 */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <h3 className="text-lg font-semibold text-gray-700 mb-4">
-          ストリーミング音声認識
-        </h3>
 
-        <div className="space-y-4">
-          <div className="flex items-center space-x-4">
-            <div
-              className={`w-4 h-4 rounded-full ${streamingInfo?.isActive ? 'bg-green-500' : 'bg-red-500'}`}
-            ></div>
-            <span className="text-sm font-medium">
-              {streamingInfo?.isActive ? '実行中' : '停止中'}
-            </span>
-          </div>
-
-          {streamingInfo && (
-            <div className="text-sm text-gray-600 space-y-1">
-              <div>チャンク期間: {streamingInfo.options.chunkDuration}秒</div>
-              <div>
-                オーバーラップ: {streamingInfo.options.overlapDuration}秒
-              </div>
-              <div>
-                サンプリングレート: {streamingInfo.options.sampleRate}Hz
-              </div>
-              <div>
-                バッファサイズ: {streamingInfo.bufferInfo.bufferSize} bytes
-              </div>
-              <div>処理済みチャンク: {streamingInfo.bufferInfo.chunkCount}</div>
-            </div>
-          )}
-
-          <div className="flex space-x-3">
-            <button
-              onClick={handleStartStreaming}
-              disabled={!settings?.isInitialized || streamingInfo?.isActive}
-              className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition-colors disabled:opacity-50"
-            >
-              ストリーミング開始
-            </button>
-
-            <button
-              onClick={handleStopStreaming}
-              disabled={!streamingInfo?.isActive}
-              className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 transition-colors disabled:opacity-50"
-            >
-              ストリーミング停止
-            </button>
-          </div>
-        </div>
-      </div>
 
       {/* 認識精度・レイテンシ最適化設定 */}
       <div className="bg-white rounded-lg shadow p-6">
