@@ -9,15 +9,20 @@ const isDev = process.env.NODE_ENV === 'development';
 
 function createWindow(): void {
   mainWindow = new BrowserWindow({
-    width: 1200,
-    height: 800,
+    width: 1400,
+    height: 900,
+    minWidth: 1000,
+    minHeight: 700,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
       preload: path.join(__dirname, 'preload.js'),
     },
-    titleBarStyle: 'default',
+    titleBarStyle: 'hiddenInset',
     show: false,
+    backgroundColor: '#f8fafc',
+    vibrancy: 'under-window',
+    visualEffectState: 'active',
   });
 
   // 開発環境ではローカルサーバー、本番環境ではファイルを読み込み

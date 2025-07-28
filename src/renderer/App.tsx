@@ -1,64 +1,48 @@
-import React from 'react';
-import { AudioCapture } from './components/AudioCapture';
-import { AudioQualityMonitor } from './components/AudioQualityMonitor';
-import VirtualAudioDeviceSetup from './components/VirtualAudioDeviceSetup';
-import WhisperSetup from './components/WhisperSetup';
-import STTProviderSetup from './components/STTProviderSetup';
-import TranscriptAggregator from './components/TranscriptAggregator';
-import LiveTranscriptDisplay from './components/LiveTranscriptDisplay';
-import SummaryDisplay from './components/SummaryDisplay';
-import LLMSettingsUI from './components/LLMSettingsUI';
+import React, { useState } from 'react';
+import Header from './components/Header';
+import Sidebar from './components/Sidebar';
+import MainTabs from './components/MainTabs';
 
 const App: React.FC = () => {
+  const [isRecording, setIsRecording] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+
+  const handleToggleRecording = () => {
+    setIsRecording(!isRecording);
+  };
+
+  const handleExport = () => {
+    // TODO: エクスポート機能を実装
+    console.log('Export clicked');
+  };
+
+  const handleSettings = () => {
+    // TODO: 設定画面を開く
+    console.log('Settings clicked');
+  };
+
   return (
-    <div className="min-h-screen bg-gray-100">
-      <div className="container mx-auto px-4 py-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-8">Voice Summary</h1>
+    <div className="h-screen flex flex-col bg-gray-50">
+      {/* ヘッダー */}
+      <Header
+        isRecording={isRecording}
+        onToggleRecording={handleToggleRecording}
+        onExport={handleExport}
+        onSettings={handleSettings}
+      />
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <AudioCapture />
-          <AudioQualityMonitor />
+      {/* メインコンテンツ */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* サイドバー */}
+        <Sidebar
+          isCollapsed={isSidebarCollapsed}
+          onToggle={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+        />
+
+        {/* メインエリア */}
+        <div className="flex-1 flex flex-col">
+          <MainTabs />
         </div>
-
-        <div className="mt-6">
-          <VirtualAudioDeviceSetup />
-        </div>
-
-        <div className="mt-6">
-          <WhisperSetup />
-        </div>
-
-        <div className="mt-6">
-          <STTProviderSetup />
-        </div>
-
-        <div className="mt-6">
-          <TranscriptAggregator />
-        </div>
-
-                  <div className="mt-6">
-            <LiveTranscriptDisplay
-              autoScroll={true}
-              showTimestamps={true}
-              showConfidence={true}
-              maxHeight="600px"
-              refreshInterval={1000}
-            />
-          </div>
-          
-          <div className="mt-6">
-            <SummaryDisplay
-              autoRefresh={true}
-              refreshInterval={5000}
-              showConfidence={true}
-              showUsage={true}
-              maxHeight="600px"
-            />
-          </div>
-          
-          <div className="mt-6">
-            <LLMSettingsUI />
-          </div>
       </div>
     </div>
   );
