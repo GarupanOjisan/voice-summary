@@ -46,8 +46,10 @@ export class VirtualAudioDeviceManager extends EventEmitter {
 
       const devices: VirtualAudioDevice[] = [];
 
-      if (audioData.SPAudioDataType) {
-        for (const device of audioData.SPAudioDataType) {
+      if (audioData.SPAudioDataType && audioData.SPAudioDataType[0] && audioData.SPAudioDataType[0]._items) {
+        const audioDevices = audioData.SPAudioDataType[0]._items;
+        
+        for (const device of audioDevices) {
           const deviceName = device._name || '';
           const isVirtual = this.isVirtualDevice(deviceName);
 
@@ -86,16 +88,26 @@ export class VirtualAudioDeviceManager extends EventEmitter {
       );
       const audioData = JSON.parse(stdout);
 
-      if (audioData.SPAudioDataType) {
-        for (const device of audioData.SPAudioDataType) {
+      console.log('BlackHole検出: オーディオデバイス情報を取得しました');
+
+      if (audioData.SPAudioDataType && audioData.SPAudioDataType[0] && audioData.SPAudioDataType[0]._items) {
+        const devices = audioData.SPAudioDataType[0]._items;
+        
+        for (const device of devices) {
           const deviceName = device._name || '';
+          console.log(`BlackHole検出: デバイス名 "${deviceName}" をチェック中`);
+          
           if (deviceName.toLowerCase().includes('blackhole')) {
+            console.log(`BlackHole検出: BlackHoleデバイス "${deviceName}" を発見`);
             return true;
           }
         }
       }
+      
+      console.log('BlackHole検出: BlackHoleデバイスが見つかりませんでした');
       return false;
     } catch (error) {
+      console.error('BlackHole検出エラー:', error);
       return false;
     }
   }
