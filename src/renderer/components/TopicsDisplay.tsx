@@ -1,49 +1,8 @@
-import React, { useState, useEffect } from 'react';
-
-interface Topic {
-  id: string;
-  name: string;
-  confidence: number;
-  timestamp: string;
-  duration: number;
-  mentions: number;
-}
+import React from 'react';
+import { useSummaryStore } from '../stores';
 
 const TopicsDisplay: React.FC = () => {
-  const [topics, setTopics] = useState<Topic[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-
-  // サンプルデータ（実際の実装ではAPIから取得）
-  useEffect(() => {
-    const sampleTopics: Topic[] = [
-      {
-        id: '1',
-        name: 'プロジェクト計画',
-        confidence: 0.95,
-        timestamp: '00:05:30',
-        duration: 180,
-        mentions: 5,
-      },
-      {
-        id: '2',
-        name: '技術的課題',
-        confidence: 0.88,
-        timestamp: '00:08:15',
-        duration: 240,
-        mentions: 3,
-      },
-      {
-        id: '3',
-        name: 'スケジュール調整',
-        confidence: 0.92,
-        timestamp: '00:12:45',
-        duration: 120,
-        mentions: 4,
-      },
-    ];
-
-    setTopics(sampleTopics);
-  }, []);
+  const { topics, isGenerating } = useSummaryStore();
 
   return (
     <div className="h-full bg-white p-6">
@@ -55,7 +14,7 @@ const TopicsDisplay: React.FC = () => {
         </div>
       </div>
 
-      {isLoading ? (
+      {isGenerating ? (
         <div className="flex items-center justify-center h-64">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
         </div>
@@ -79,8 +38,8 @@ const TopicsDisplay: React.FC = () => {
               </div>
               
               <div className="flex items-center justify-between text-sm text-gray-600">
-                <span>開始時刻: {topic.timestamp}</span>
-                <span>継続時間: {Math.floor(topic.duration / 60)}分{topic.duration % 60}秒</span>
+                <span>開始時刻: {new Date(topic.startTime).toLocaleTimeString()}</span>
+                <span>継続時間: {Math.floor((topic.endTime - topic.startTime) / 60000)}分{Math.floor(((topic.endTime - topic.startTime) % 60000) / 1000)}秒</span>
               </div>
               
               <div className="mt-2">

@@ -1,19 +1,9 @@
 import React, { useState } from 'react';
+import { useAudioStore } from '../stores';
 
-interface HeaderProps {
-  onExport: () => void;
-  onSettings: () => void;
-  isRecording: boolean;
-  onToggleRecording: () => void;
-}
-
-const Header: React.FC<HeaderProps> = ({
-  onExport,
-  onSettings,
-  isRecording,
-  onToggleRecording,
-}) => {
+const Header: React.FC = () => {
   const [showDropdown, setShowDropdown] = useState(false);
+  const { isRecording, startRecording, stopRecording } = useAudioStore();
 
   return (
     <header className="bg-white border-b border-gray-200 px-6 py-4">
@@ -30,7 +20,7 @@ const Header: React.FC<HeaderProps> = ({
         <div className="flex items-center space-x-4">
           {/* 録音ボタン */}
           <button
-            onClick={onToggleRecording}
+            onClick={() => isRecording ? stopRecording() : startRecording()}
             className={`flex items-center space-x-2 px-6 py-2 rounded-full font-medium transition-all duration-200 ${
               isRecording
                 ? 'bg-red-500 text-white hover:bg-red-600 shadow-lg'
@@ -56,7 +46,7 @@ const Header: React.FC<HeaderProps> = ({
         <div className="flex items-center space-x-3">
           {/* エクスポートボタン */}
           <button
-            onClick={onExport}
+            onClick={() => console.log('Export clicked')}
             className="flex items-center space-x-2 px-4 py-2 text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
           >
             <span>📤</span>
@@ -78,7 +68,7 @@ const Header: React.FC<HeaderProps> = ({
               <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50">
                 <button
                   onClick={() => {
-                    onSettings();
+                    console.log('Settings clicked');
                     setShowDropdown(false);
                   }}
                   className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
