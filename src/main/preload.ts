@@ -52,6 +52,25 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getCurrentSttProvider: () => ipcRenderer.invoke('get-current-stt-provider'),
   updateSttConfig: (config: any) => ipcRenderer.invoke('update-stt-config', config),
 
+  // STTサービス関連
+  initializeSttService: () => ipcRenderer.invoke('initialize-stt-service'),
+  getSttServiceStatus: () => ipcRenderer.invoke('get-stt-service-status'),
+  getSttProfiles: () => ipcRenderer.invoke('get-stt-profiles'),
+  getCurrentSttProfile: () => ipcRenderer.invoke('get-current-stt-profile'),
+  switchSttProfile: (profileId: string) => ipcRenderer.invoke('switch-stt-profile', profileId),
+  createSttProfile: (name: string, engineConfig: any, defaultOptions: any, description?: string) => ipcRenderer.invoke('create-stt-profile', name, engineConfig, defaultOptions, description),
+  updateSttProfile: (id: string, updates: any) => ipcRenderer.invoke('update-stt-profile', id, updates),
+  deleteSttProfile: (id: string) => ipcRenderer.invoke('delete-stt-profile', id),
+  getSttErrorStats: () => ipcRenderer.invoke('get-stt-error-stats'),
+  getRecentSttErrors: (count: number) => ipcRenderer.invoke('get-recent-stt-errors', count),
+  resolveSttError: (errorId: string) => ipcRenderer.invoke('resolve-stt-error', errorId),
+  clearSttErrors: () => ipcRenderer.invoke('clear-stt-errors'),
+  saveSttConfig: () => ipcRenderer.invoke('save-stt-config'),
+  reloadSttConfig: () => ipcRenderer.invoke('reload-stt-config'),
+  resetSttConfig: () => ipcRenderer.invoke('reset-stt-config'),
+  exportSttProfile: (id: string) => ipcRenderer.invoke('export-stt-profile', id),
+  importSttProfile: (profileData: string) => ipcRenderer.invoke('import-stt-profile', profileData),
+
   // ファイル関連
   saveFile: (data: any, filename: string) =>
     ipcRenderer.invoke('save-file', data, filename),
@@ -130,6 +149,23 @@ declare global {
       stopSttStreaming: () => Promise<{ success: boolean; error?: string }>;
       getCurrentSttProvider: () => Promise<string | null>;
       updateSttConfig: (config: any) => Promise<{ success: boolean; error?: string }>;
+      initializeSttService: () => Promise<{ success: boolean; error?: string }>;
+      getSttServiceStatus: () => Promise<any>;
+      getSttProfiles: () => Promise<any[]>;
+      getCurrentSttProfile: () => Promise<any>;
+      switchSttProfile: (profileId: string) => Promise<{ success: boolean; error?: string }>;
+      createSttProfile: (name: string, engineConfig: any, defaultOptions: any, description?: string) => Promise<{ success: boolean; profileId?: string; error?: string }>;
+      updateSttProfile: (id: string, updates: any) => Promise<{ success: boolean; error?: string }>;
+      deleteSttProfile: (id: string) => Promise<{ success: boolean; error?: string }>;
+      getSttErrorStats: () => Promise<any>;
+      getRecentSttErrors: (count: number) => Promise<any[]>;
+      resolveSttError: (errorId: string) => Promise<{ success: boolean; error?: string }>;
+      clearSttErrors: () => Promise<{ success: boolean; error?: string }>;
+      saveSttConfig: () => Promise<{ success: boolean; error?: string }>;
+      reloadSttConfig: () => Promise<{ success: boolean; error?: string }>;
+      resetSttConfig: () => Promise<{ success: boolean; error?: string }>;
+      exportSttProfile: (id: string) => Promise<{ success: boolean; data?: string; error?: string }>;
+      importSttProfile: (profileData: string) => Promise<{ success: boolean; profileId?: string; error?: string }>;
       saveFile: (data: any, filename: string) => Promise<void>;
       openFile: () => Promise<any>;
       getSettings: () => Promise<any>;
