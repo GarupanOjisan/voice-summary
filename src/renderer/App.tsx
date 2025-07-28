@@ -2,6 +2,7 @@ import React from 'react';
 import { AudioCapture } from './components/AudioCapture';
 import { AudioQualityMonitor } from './components/AudioQualityMonitor';
 import VirtualAudioDeviceSetup from './components/VirtualAudioDeviceSetup';
+import WhisperSetup from './components/WhisperSetup';
 
 const App: React.FC = () => {
   return (
@@ -16,6 +17,10 @@ const App: React.FC = () => {
 
         <div className="mt-6">
           <VirtualAudioDeviceSetup />
+        </div>
+
+        <div className="mt-6">
+          <WhisperSetup />
         </div>
 
         <div className="mt-6 bg-white rounded-lg shadow-md p-6">

@@ -6,15 +6,23 @@ import {
 } from './audio-capture';
 import { AudioProcessor, AudioProcessorOptions } from './audio-processor';
 import { VirtualAudioDeviceManager } from './virtual-audio-device';
+import { WhisperManager } from './whisper-manager';
+import {
+  StreamingTranscription,
+  StreamingTranscriptionOptions,
+} from './streaming-transcription';
 
 export class AudioManager {
   private audioCapture: AudioCapture | null = null;
   private audioProcessor: AudioProcessor | null = null;
   private virtualAudioDeviceManager: VirtualAudioDeviceManager;
+  private whisperManager: WhisperManager;
+  private streamingTranscription: StreamingTranscription | null = null;
   private devices: AudioDevice[] = [];
 
   constructor() {
     this.virtualAudioDeviceManager = new VirtualAudioDeviceManager();
+    this.whisperManager = new WhisperManager();
     this.setupIpcHandlers();
   }
 
@@ -145,6 +153,82 @@ export class AudioManager {
         }
       }
     );
+
+    // Whisper関連のIPCハンドラー
+    // 利用可能なモデル取得
+    ipcMain.handle('get-whisper-models', () => {
+      return this.whisperManager.getAvailableModels();
+    });
+
+    // ダウンロード済みモデル取得
+    ipcMain.handle('get-downloaded-whisper-models', () => {
+      return this.whisperManager.getDownloadedModels();
+    });
+
+    // モデルダウンロード
+    ipcMain.handle(
+      'download-whisper-model',
+      async (event, modelName: string) => {
+        try {
+          return await this.whisperManager.downloadModel(modelName);
+        } catch (error) {
+          console.error('Whisperモデルダウンロードエラー:', error);
+          return { success: false, error: (error as Error).message };
+        }
+      }
+    );
+
+    // Whisper初期化
+    ipcMain.handle('initialize-whisper', async (event, modelName: string) => {
+      try {
+        return await this.whisperManager.initialize(modelName);
+      } catch (error) {
+        console.error('Whisper初期化エラー:', error);
+        return { success: false, error: (error as Error).message };
+      }
+    });
+
+    // ストリーミング音声認識開始
+    ipcMain.handle(
+      'start-streaming-transcription',
+      async (event, options: StreamingTranscriptionOptions) => {
+        try {
+          await this.startStreamingTranscription(options);
+          return { success: true };
+        } catch (error) {
+          console.error('ストリーミング音声認識開始エラー:', error);
+          return { success: false, error: (error as Error).message };
+        }
+      }
+    );
+
+    // ストリーミング音声認識停止
+    ipcMain.handle('stop-streaming-transcription', async () => {
+      try {
+        await this.stopStreamingTranscription();
+        return { success: true };
+      } catch (error) {
+        console.error('ストリーミング音声認識停止エラー:', error);
+        return { success: false, error: (error as Error).message };
+      }
+    });
+
+    // Whisper設定取得
+    ipcMain.handle('get-whisper-settings', () => {
+      return this.whisperManager.getCurrentSettings();
+    });
+
+    // ストリーミング設定取得
+    ipcMain.handle('get-streaming-transcription-info', () => {
+      if (this.streamingTranscription) {
+        return {
+          options: this.streamingTranscription.getOptions(),
+          bufferInfo: this.streamingTranscription.getBufferInfo(),
+          isActive: this.streamingTranscription.isStreamingActive(),
+        };
+      }
+      return null;
+    });
   }
 
   /**
@@ -433,5 +517,72 @@ export class AudioManager {
     }
 
     await this.audioCapture.startMixedAudioCapture(systemDevice, micDevice);
+  }
+
+  /**
+   * ストリーミング音声認識を開始
+   */
+  async startStreamingTranscription(
+    options: StreamingTranscriptionOptions
+  ): Promise<void> {
+    if (
+      this.streamingTranscription &&
+      this.streamingTranscription.isStreamingActive()
+    ) {
+      await this.stopStreamingTranscription();
+    }
+
+    // StreamingTranscriptionを初期化
+    this.streamingTranscription = new StreamingTranscription(
+      this.whisperManager,
+      options
+    );
+
+    // イベントリスナーを設定
+    this.streamingTranscription.on('transcriptionChunk', (chunk) => {
+      this.sendTranscriptionChunkToRenderer(chunk);
+    });
+
+    this.streamingTranscription.on('error', (error) => {
+      console.error('ストリーミング音声認識エラー:', error);
+    });
+
+    this.streamingTranscription.on('streamingStarted', () => {
+      console.log('ストリーミング音声認識が開始されました');
+    });
+
+    this.streamingTranscription.on('streamingStopped', () => {
+      console.log('ストリーミング音声認識が停止されました');
+    });
+
+    // AudioProcessorから音声データを受け取ってストリーミングに送信
+    if (this.audioProcessor) {
+      this.audioProcessor.on('processedChunk', (chunk) => {
+        if (this.streamingTranscription) {
+          this.streamingTranscription.addAudioData(chunk.data);
+        }
+      });
+    }
+
+    await this.streamingTranscription.startStreaming();
+  }
+
+  /**
+   * ストリーミング音声認識を停止
+   */
+  async stopStreamingTranscription(): Promise<void> {
+    if (this.streamingTranscription) {
+      await this.streamingTranscription.stopStreaming();
+      this.streamingTranscription.cleanup();
+      this.streamingTranscription = null;
+    }
+  }
+
+  /**
+   * レンダラープロセスに文字起こしチャンクを送信
+   */
+  private sendTranscriptionChunkToRenderer(chunk: any): void {
+    // メインプロセスからレンダラープロセスへの通信
+    console.log('文字起こしチャンク送信:', chunk.text);
   }
 }

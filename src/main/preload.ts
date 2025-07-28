@@ -25,6 +25,22 @@ contextBridge.exposeInMainWorld('electronAPI', {
   startMixedAudioCapture: (systemDevice: string, micDevice: string) =>
     ipcRenderer.invoke('start-mixed-audio-capture', systemDevice, micDevice),
 
+  // Whisper関連
+  getWhisperModels: () => ipcRenderer.invoke('get-whisper-models'),
+  getDownloadedWhisperModels: () =>
+    ipcRenderer.invoke('get-downloaded-whisper-models'),
+  downloadWhisperModel: (modelName: string) =>
+    ipcRenderer.invoke('download-whisper-model', modelName),
+  initializeWhisper: (modelName: string) =>
+    ipcRenderer.invoke('initialize-whisper', modelName),
+  startStreamingTranscription: (options: any) =>
+    ipcRenderer.invoke('start-streaming-transcription', options),
+  stopStreamingTranscription: () =>
+    ipcRenderer.invoke('stop-streaming-transcription'),
+  getWhisperSettings: () => ipcRenderer.invoke('get-whisper-settings'),
+  getStreamingTranscriptionInfo: () =>
+    ipcRenderer.invoke('get-streaming-transcription-info'),
+
   // ファイル関連
   saveFile: (data: any, filename: string) =>
     ipcRenderer.invoke('save-file', data, filename),
@@ -77,6 +93,23 @@ declare global {
         systemDevice: string,
         micDevice: string
       ) => Promise<{ success: boolean; error?: string }>;
+      getWhisperModels: () => Promise<any[]>;
+      getDownloadedWhisperModels: () => Promise<string[]>;
+      downloadWhisperModel: (
+        modelName: string
+      ) => Promise<{ success: boolean; error?: string }>;
+      initializeWhisper: (
+        modelName: string
+      ) => Promise<{ success: boolean; error?: string }>;
+      startStreamingTranscription: (
+        options: any
+      ) => Promise<{ success: boolean; error?: string }>;
+      stopStreamingTranscription: () => Promise<{
+        success: boolean;
+        error?: string;
+      }>;
+      getWhisperSettings: () => Promise<any>;
+      getStreamingTranscriptionInfo: () => Promise<any>;
       saveFile: (data: any, filename: string) => Promise<void>;
       openFile: () => Promise<any>;
       getSettings: () => Promise<any>;

@@ -223,7 +223,7 @@ export class VirtualAudioDeviceManager extends EventEmitter {
   /**
    * デバイスタイプを判定
    */
-  private getDeviceType(_device: any): 'input' | 'output' | 'both' {
+  private getDeviceType(_device: unknown): 'input' | 'output' | 'both' {
     // 実際の実装では、デバイスの詳細情報から判定
     // ここでは仮想的に'both'を返す
     return 'both';
