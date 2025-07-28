@@ -1,0 +1,82 @@
+{
+  "name": "voice-summary",
+  "version": "1.0.0",
+  "description": "音声文字起こしアプリ - Zoom/Google Meet会議の自動文字起こしと要約",
+  "main": "dist/main/main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "concurrently \"npm run dev:renderer\" \"npm run dev:main\"",
+    "dev:main": "tsc -p tsconfig.main.json && electron .",
+    "dev:renderer": "webpack serve --mode development",
+    "build": "npm run build:main && npm run build:renderer",
+    "build:main": "tsc -p tsconfig.main.json",
+    "build:renderer": "webpack --mode production",
+    "dist": "npm run build && electron-builder",
+    "lint": "eslint src --ext .ts,.tsx",
+    "lint:fix": "eslint src --ext .ts,.tsx --fix",
+    "format": "prettier --write src/**/*.{ts,tsx,js,jsx}",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/GarupanOjisan/voice-summary.git"
+  },
+  "keywords": [
+    "electron",
+    "voice",
+    "transcription",
+    "summary",
+    "meeting"
+  ],
+  "author": "GarupanOjisan",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/GarupanOjisan/voice-summary/issues"
+  },
+  "homepage": "https://github.com/GarupanOjisan/voice-summary#readme",
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/react": "^18.0.0",
+    "@types/react-dom": "^18.0.0",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
+    "autoprefixer": "^10.4.0",
+    "concurrently": "^8.2.2",
+    "css-loader": "^6.8.0",
+    "electron": "^27.0.0",
+    "electron-builder": "^24.0.0",
+    "eslint": "^8.0.0",
+    "eslint-config-prettier": "^9.0.0",
+    "eslint-plugin-prettier": "^5.0.0",
+    "html-webpack-plugin": "^5.5.0",
+    "postcss": "^8.4.0",
+    "postcss-loader": "^8.1.1",
+    "prettier": "^3.0.0",
+    "style-loader": "^3.3.0",
+    "tailwindcss": "^3.3.0",
+    "ts-loader": "^9.4.0",
+    "typescript": "^5.0.0",
+    "webpack": "^5.88.0",
+    "webpack-cli": "^5.1.0",
+    "webpack-dev-server": "^4.15.0"
+  },
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "build": {
+    "appId": "com.garupanojisan.voice-summary",
+    "productName": "Voice Summary",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "node_modules/**/*"
+    ],
+    "mac": {
+      "category": "public.app-category.productivity",
+      "target": "dmg"
+    }
+  }
+}
