@@ -7,6 +7,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   startAudioCapture: (deviceId: string) =>
     ipcRenderer.invoke('start-audio-capture', deviceId),
   stopAudioCapture: () => ipcRenderer.invoke('stop-audio-capture'),
+  getAudioLevel: () => ipcRenderer.invoke('get-audio-level'),
   getAudioQualityStats: () => ipcRenderer.invoke('get-audio-quality-stats'),
   getBufferInfo: () => ipcRenderer.invoke('get-buffer-info'),
   updateAudioProcessorOptions: (options: any) =>
@@ -145,6 +146,7 @@ declare global {
         deviceId: string
       ) => Promise<{ success: boolean; error?: string }>;
       stopAudioCapture: () => Promise<{ success: boolean; error?: string }>;
+      getAudioLevel: () => Promise<any>;
       getAudioQualityStats: () => Promise<any>;
       getBufferInfo: () => Promise<any>;
       updateAudioProcessorOptions: (

@@ -44,6 +44,12 @@ export class AudioManager {
           sampleRate: 16000,
           channels: 1,
         },
+        [STTProviderType.KOTOBA_WHISPER]: {
+          apiKey: '', // Kotoba WhisperはAPIキー不要
+          language: 'ja',
+          sampleRate: 16000,
+          channels: 1,
+        },
         // 他のプロバイダーの設定は後で追加
       },
       autoSwitch: true,
@@ -282,6 +288,11 @@ export class AudioManager {
         console.error('音声キャプチャ停止エラー:', error);
         return { success: false, error: (error as Error).message };
       }
+    });
+
+    // 音声レベル取得
+    ipcMain.handle('get-audio-level', () => {
+      return this.getAudioLevel();
     });
 
     // 音声品質統計取得

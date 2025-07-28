@@ -70,6 +70,7 @@ export const AudioCapture: React.FC<AudioCaptureProps> = () => {
 
       if (result.success) {
         setIsCapturing(false);
+        setAudioLevel(0); // 音声レベルを0にリセット
         console.log('音声キャプチャを停止しました');
         
         // STTストリーミング状態を手動でfalseに設定
@@ -84,13 +85,21 @@ export const AudioCapture: React.FC<AudioCaptureProps> = () => {
     }
   };
 
-  // 音声レベルメーターのアニメーション
+  // 実際の音声レベルデータを取得
   useEffect(() => {
     if (isCapturing) {
-      const interval = setInterval(() => {
-        setAudioLevel(Math.random() * 100);
+      const interval = setInterval(async () => {
+        try {
+          const level = await window.electronAPI.getAudioLevel();
+          setAudioLevel(level);
+        } catch (error) {
+          console.error('音声レベル取得エラー:', error);
+          setAudioLevel(0);
+        }
       }, 100);
       return () => clearInterval(interval);
+    } else {
+      setAudioLevel(0);
     }
   }, [isCapturing]);
 

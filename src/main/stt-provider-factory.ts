@@ -1,34 +1,28 @@
-import {
-  STTProvider,
-  STTProviderConfig,
-  STTProviderType,
-  STTProviderFactory as ISTTProviderFactory,
-  STTTranscriptionResult,
-} from './stt-provider';
+import { STTProvider, STTProviderType, STTProviderConfig } from './stt-provider';
 import { AssemblyAIProvider } from './providers/assemblyai-provider';
 import { DeepgramProvider } from './providers/deepgram-provider';
 import { GoogleSTTProvider } from './providers/google-stt-provider';
+import { KotobaWhisperProvider } from './providers/kotoba-whisper-provider';
 import { WhisperManager } from './whisper-manager';
+import { STTTranscriptionResult } from './stt-provider';
 import * as path from 'path';
 
-export class STTProviderFactory implements ISTTProviderFactory {
+export class STTProviderFactory {
   createProvider(type: STTProviderType, config: STTProviderConfig): STTProvider {
     switch (type) {
       case STTProviderType.ASSEMBLY_AI:
         return new AssemblyAIProvider(config);
-      
       case STTProviderType.DEEPGRAM:
         return new DeepgramProvider(config);
-      
       case STTProviderType.GOOGLE_STT:
         return new GoogleSTTProvider(config);
-      
       case STTProviderType.WHISPER_LOCAL:
         // WhisperManagerをSTTProviderとしてラップ
         return new WhisperLocalProvider(config);
-      
+      case STTProviderType.KOTOBA_WHISPER:
+        return new KotobaWhisperProvider(config);
       default:
-        throw new Error(`サポートされていないSTTプロバイダー: ${type}`);
+        throw new Error(`Unsupported STT provider type: ${type}`);
     }
   }
 
@@ -38,6 +32,7 @@ export class STTProviderFactory implements ISTTProviderFactory {
       STTProviderType.DEEPGRAM,
       STTProviderType.GOOGLE_STT,
       STTProviderType.WHISPER_LOCAL,
+      STTProviderType.KOTOBA_WHISPER,
     ];
   }
 
@@ -117,8 +112,25 @@ export class STTProviderFactory implements ISTTProviderFactory {
           supportedModels: ['tiny', 'base', 'small', 'medium', 'large']
         };
 
+      case STTProviderType.KOTOBA_WHISPER:
+        return {
+          name: 'Kotoba Whisper v2.0',
+          description: '日本語に特化した高性能なWhisperモデル。通常のWhisper large-v3よりも6.3倍高速で、日本語の文字起こし精度も優れています。',
+          features: [
+            '日本語特化モデル',
+            '6.3倍高速処理',
+            '高精度な日本語文字起こし',
+            'オフライン動作',
+            'プライバシー保護',
+            '無料利用'
+          ],
+          pricing: '無料（ローカル処理）',
+          supportedLanguages: ['ja', 'en'],
+          supportedModels: ['kotoba-tech/kotoba-whisper-v2.0']
+        };
+
       default:
-        throw new Error(`サポートされていないSTTプロバイダー: ${type}`);
+        throw new Error(`Unsupported STT provider type: ${type}`);
     }
   }
 }
@@ -127,49 +139,34 @@ export class STTProviderFactory implements ISTTProviderFactory {
 class WhisperLocalProvider extends STTProvider {
   private whisperManager: WhisperManager;
   private audioBuffer: Buffer[] = [];
+  private tempDir: string;
 
   constructor(config: STTProviderConfig) {
     super(config);
     this.whisperManager = new WhisperManager();
+    this.tempDir = require('os').tmpdir();
   }
 
   async initialize(): Promise<boolean> {
     try {
-      const result = await this.whisperManager.initialize('base');
-      return result.success;
+      await this.whisperManager.initialize();
+      return true;
     } catch (error) {
-      console.error('Whisper Local初期化エラー:', error);
+      console.error('WhisperLocalProvider初期化エラー:', error);
       return false;
     }
   }
 
   async startStreaming(options: any = {}): Promise<void> {
-    if (this.isStreaming) {
-      throw new Error('ストリーミングは既に開始されています');
-    }
-
-    try {
-      this.isStreaming = true;
-      this.emit('streamingStarted');
-      console.log('Whisper Localストリーミングを開始しました');
-    } catch (error) {
-      console.error('Whisper Localストリーミング開始エラー:', error);
-      throw error;
-    }
+    this.isStreaming = true;
+    this.audioBuffer = [];
+    this.emit('streamingStarted');
   }
 
   async stopStreaming(): Promise<void> {
-    if (!this.isStreaming) {
-      return;
-    }
-
-    try {
-      this.isStreaming = false;
-      this.emit('streamingStopped');
-    } catch (error) {
-      console.error('Whisper Localストリーミング停止エラー:', error);
-      throw error;
-    }
+    this.isStreaming = false;
+    this.audioBuffer = [];
+    this.emit('streamingStopped');
   }
 
   async sendAudioData(data: Buffer): Promise<void> {
@@ -205,7 +202,7 @@ class WhisperLocalProvider extends STTProvider {
       this.audioBuffer = [];
 
       // 一時ファイルに保存
-      const tempFilePath = path.join(require('os').tmpdir(), `whisper_${Date.now()}.wav`);
+      const tempFilePath = path.join(this.tempDir, `whisper_${Date.now()}.wav`);
       await this.saveAudioToFile(audioData, tempFilePath);
 
       // Whisperで文字起こし
@@ -222,7 +219,7 @@ class WhisperLocalProvider extends STTProvider {
         language: result.language,
         isFinal: true,
         timestamp: Date.now(),
-        segments: result.segments.map(segment => ({
+        segments: result.segments.map((segment: any) => ({
           start: segment.start,
           end: segment.end,
           text: segment.text,
@@ -240,57 +237,71 @@ class WhisperLocalProvider extends STTProvider {
   }
 
   private async saveAudioToFile(audioData: Buffer, filePath: string): Promise<void> {
-    // 簡単なWAVファイルヘッダーを作成
-    const sampleRate = this.config.sampleRate || 16000;
-    const channels = this.config.channels || 1;
-    const bitsPerSample = 16;
-    
+    try {
+      // WAVファイルヘッダーを作成
+      const sampleRate = this.config.sampleRate || 16000;
+      const channels = this.config.channels || 1;
+      const bitsPerSample = 16;
+      
+      const header = this.createWavHeader(audioData.length, sampleRate, channels, bitsPerSample);
+      const wavData = Buffer.concat([header, audioData]);
+      
+      require('fs').writeFileSync(filePath, wavData);
+    } catch (error) {
+      console.error('音声ファイル保存エラー:', error);
+      throw error;
+    }
+  }
+
+  private createWavHeader(dataLength: number, sampleRate: number, channels: number, bitsPerSample: number): Buffer {
     const header = Buffer.alloc(44);
+    
+    // RIFF header
     header.write('RIFF', 0);
-    header.writeUInt32LE(36 + audioData.length, 4);
+    header.writeUInt32LE(36 + dataLength, 4);
     header.write('WAVE', 8);
+    
+    // fmt chunk
     header.write('fmt ', 12);
-    header.writeUInt32LE(16, 16);
-    header.writeUInt16LE(1, 20);
+    header.writeUInt32LE(16, 16); // fmt chunk size
+    header.writeUInt16LE(1, 20); // PCM format
     header.writeUInt16LE(channels, 22);
     header.writeUInt32LE(sampleRate, 24);
-    header.writeUInt32LE(sampleRate * channels * bitsPerSample / 8, 28);
-    header.writeUInt16LE(channels * bitsPerSample / 8, 32);
+    header.writeUInt32LE(sampleRate * channels * bitsPerSample / 8, 28); // byte rate
+    header.writeUInt16LE(channels * bitsPerSample / 8, 32); // block align
     header.writeUInt16LE(bitsPerSample, 34);
+    
+    // data chunk
     header.write('data', 36);
-    header.writeUInt32LE(audioData.length, 40);
-
-    const wavData = Buffer.concat([header, audioData]);
-    require('fs').writeFileSync(filePath, wavData);
+    header.writeUInt32LE(dataLength, 40);
+    
+    return header;
   }
 
   async transcribeFile(filePath: string): Promise<any> {
     try {
-      const result = await this.whisperManager.transcribeAudio(filePath);
-      
-      const transcriptionResult = {
+      const result = await this.whisperManager.transcribeAudio(filePath, {
+        language: this.config.language || 'ja',
+        temperature: 0,
+        suppressBlank: true,
+      });
+
+      return {
         text: result.text,
-        confidence: 0.8, // Whisperは信頼度を直接提供しないため仮の値
+        confidence: 0.8,
         language: result.language,
         isFinal: true,
         timestamp: Date.now(),
         segments: result.segments,
       };
-
-      this.emit('transcriptionComplete', transcriptionResult);
-      return transcriptionResult;
     } catch (error) {
-      console.error('Whisper Localファイル文字起こしエラー:', error);
+      console.error('ファイル文字起こしエラー:', error);
       throw error;
     }
   }
 
   getSupportedLanguages(): string[] {
-    return [
-      'ja', 'en', 'zh', 'ko', 'es', 'fr', 'de', 'it', 'pt', 'ru',
-      'nl', 'pl', 'tr', 'ar', 'hi', 'th', 'vi', 'sv', 'da', 'no',
-      'fi', 'hu', 'cs', 'ro', 'sk', 'sl', 'hr', 'bg', 'el', 'he'
-    ];
+    return ['ja', 'en'];
   }
 
   getSupportedModels(): string[] {

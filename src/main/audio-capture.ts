@@ -329,8 +329,9 @@ export class AudioCapture extends EventEmitter {
    * 音声レベルを取得
    */
   getAudioLevel(): number {
-    // 簡易実装: 実際の実装では音声データからRMSを計算
-    return Math.random() * 100;
+    // 実際の音声レベルを返す（現在は0を返す）
+    // 将来的には音声データからRMSを計算して返す
+    return 0;
   }
 
   /**

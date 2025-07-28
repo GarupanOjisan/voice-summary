@@ -227,10 +227,44 @@ export class STTConfigManager extends EventEmitter {
       updatedAt: new Date(),
     };
 
+    // Kotoba Whisper プロファイル
+    const kotobaWhisperProfile: STTConfigProfile = {
+      id: 'kotoba-whisper',
+      name: 'Kotoba Whisper v2.0',
+      description: '日本語に特化した高性能なWhisperモデル',
+      engineConfig: {
+        defaultProvider: STTProviderType.KOTOBA_WHISPER,
+        providers: {
+          [STTProviderType.KOTOBA_WHISPER]: {
+            apiKey: '',
+            language: 'ja',
+            sampleRate: 16000,
+            channels: 1,
+          },
+        },
+        autoSwitch: false,
+        retryAttempts: 3,
+        retryDelay: 1000,
+        connectionTimeout: 30000,
+        maxConcurrentRequests: 5,
+      },
+      defaultOptions: {
+        language: 'ja',
+        model: 'kotoba-tech/kotoba-whisper-v2.0',
+        interimResults: true,
+        punctuate: true,
+        smartFormat: true,
+        confidenceThreshold: 0.7,
+      },
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
     this.profiles.set(whisperLocalProfile.id, whisperLocalProfile);
     this.profiles.set(assemblyAIProfile.id, assemblyAIProfile);
     this.profiles.set(deepgramProfile.id, deepgramProfile);
     this.profiles.set(googleSTTProfile.id, googleSTTProfile);
+    this.profiles.set(kotobaWhisperProfile.id, kotobaWhisperProfile);
 
     this.currentProfileId = 'whisper-local';
     this.saveProfiles();

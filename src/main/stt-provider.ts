@@ -73,7 +73,8 @@ export enum STTProviderType {
   ASSEMBLY_AI = 'assemblyai',
   DEEPGRAM = 'deepgram',
   GOOGLE_STT = 'google_stt',
-  WHISPER_LOCAL = 'whisper_local'
+  WHISPER_LOCAL = 'whisper_local',
+  KOTOBA_WHISPER = 'kotoba_whisper'
 }
 
 export interface STTProviderFactory {
